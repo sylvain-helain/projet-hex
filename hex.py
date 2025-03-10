@@ -34,12 +34,103 @@ COLORS = ('blue','red')
 class Game(object):
     def __init__(self, size):
         self.mat = np.zeros((size, size), dtype=int)
+        self.mat_poids = [np.full((size*size,size*size), fill_value=np.inf), np.full((size*size,size*size), fill_value=np.inf)]
         self.size = size
         self.turn = 0
+        self.game_over = False
+        self.winner = ''
+
+        for y in range(size*size):
+            for x in range(y,size*size):
+                x1, y1 = y%size, y//size
+                x2, y2 = x%size, x//size
+                dx ,dy = x1-x2, y1-y2
+                if y==x:
+                    self.mat_poids[0][y][x] = 0
+                    self.mat_poids[1][y][x] = 0
+                    self.mat_poids[0][x][y] = 0
+                    self.mat_poids[1][x][y] = 0
+                elif (dx == -1 and dy == -1) or (dx == 1 and dy == 1):
+                    continue
+                elif abs(dx) <= 1 and abs(dy) <= 1:
+                    self.mat_poids[0][y][x] = 1
+                    self.mat_poids[1][y][x] = 1
+                    self.mat_poids[0][x][y] = 1
+                    self.mat_poids[1][x][y] = 1
+
 
     def update_mat(self, x, y, player):
         self.mat[y][x] = player
-        print(self.mat,end='\n\n')
+        for y1 in range(-1,2):
+            for x1 in range(-1,2):
+                y2, x2 = y+y1, x+x1
+                if (y1 == x1) or (y2 >= self.size) or (y2 < 0) or (x2 >= self.size) or (x2 < 0):
+                    continue
+                yp, xp = y*self.size + x, y2*self.size + x2
+                value = self.mat[y2][x2]
+                if value == 0:
+                    self.mat_poids[player%2][yp][xp] = 0.5
+                    self.mat_poids[player%2][xp][yp] = 0.5
+                    self.mat_poids[(player+1)%2][yp][xp] = np.inf
+                    self.mat_poids[(player+1)%2][xp][yp] = np.inf
+                elif value == player:
+                    self.mat_poids[player%2][yp][xp] = 0
+                    self.mat_poids[player%2][xp][yp] = 0
+                    self.mat_poids[(player+1)%2][yp][xp] = np.inf
+                    self.mat_poids[(player+1)%2][xp][yp] = np.inf
+                else:
+                    self.mat_poids[player%2][yp][xp] = np.inf
+                    self.mat_poids[player%2][xp][yp] = np.inf
+                    self.mat_poids[(player+1)%2][yp][xp] = np.inf
+                    self.mat_poids[(player+1)%2][xp][yp] = np.inf
+
+        for joueur in [1,2]:
+            if joueur == 1:
+                A = {(0,i) for i in range(self.size)}
+                B = {(self.size-1,i) for i in range(self.size)}
+            else:
+                A = {(i,0) for i in range(self.size)}
+                B = {(i,self.size-1) for i in range(self.size)}
+            
+            plus_court_chemin = np.inf
+            for x,y in A:
+                res = {key : value for key, value in self.dijkstra(x,y,joueur).items() if key in B}
+                plus_court_chemin = min(plus_court_chemin, min(res.values()))
+            print(COLORS[(joueur+1)%2], plus_court_chemin)
+            
+            if plus_court_chemin == 0:
+                print(f'joueur {COLORS[(joueur+1)%2]} gagne')
+                self.game_over = True
+                self.winner = COLORS[(joueur+1)%2]
+            elif plus_court_chemin == np.inf:
+                print(f'joueur {COLORS[(joueur+1)%2]} perd')
+        print()
+
+            
+
+
+
+    def dijkstra(self, x, y, player):
+        poids = {(i%self.size, i//self.size) : np.inf for i in range(81)}
+        poids[(x,y)] = 0
+        marqués = set([(x,y)])
+        traités = set([])
+        while len(marqués) != len(traités):
+            x,y = min(marqués-traités,key=lambda i: poids[i])
+            traités.add((x,y))
+            for x1 in range(-1,2):
+                for y1 in range(-1,2):
+                    y2, x2 = y+y1, x+x1
+                    if (y1 == x1) or (y2 >= self.size) or (y2 < 0) or (x2 >= self.size) or (x2 < 0):
+                        continue
+                    yp, xp = y*self.size + x, y2*self.size + x2
+                    value = self.mat_poids[player%2][yp][xp]
+                    if value != np.inf:
+                        marqués.add((x2,y2))
+                        poids[(x2,y2)] = min(poids[(x2,y2)], value+poids[(x,y)])
+        return poids
+                    
+                    
 
 
 class App(tk.Tk):
@@ -60,6 +151,8 @@ class App(tk.Tk):
         self.draw_board(self.game.size)
 
     def click(self, event):
+        if self.game.game_over:
+            return
         overlap = self.canvas.find_overlapping(event.x-1,event.y-1,event.x+1,event.y+1)
         if len(overlap) == 0:
             return
@@ -75,6 +168,8 @@ class App(tk.Tk):
             self.game.update_mat(x,y, self.game.turn%2+1)
         else:
             return
+        if self.game.game_over:
+            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
         self.canvas.delete('turn_count')
         self.canvas.delete('cursor')
         self.game.turn += 1
