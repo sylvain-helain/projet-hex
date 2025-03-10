@@ -39,6 +39,8 @@ class Game(object):
         self.turn = 0
         self.game_over = False
         self.winner = ''
+        self.pcc_bleu = []
+        self.pcc_rouge = []
 
         self.borders = [
             [(x,y) for y in [0,size-1] for x in range(size)],
@@ -111,10 +113,24 @@ class Game(object):
                 B = {(i,self.size-1) for i in range(self.size)}
             
             plus_court_chemin = np.inf
+            chemin = []
             for x,y in A:
-                res = {key : value for key, value in self.dijkstra(x,y,joueur).items() if key in B}
-                plus_court_chemin = min(plus_court_chemin, min(res.values()))
+                poids, dict_chemins = self.dijkstra(x,y,joueur)
+                res = {key : value for key, value in poids.items() if key in B}
+                if (mini := min(res.values())) < plus_court_chemin:
+                    plus_court_chemin = mini
+                    sommet = [key for key,val in res.items() if val == plus_court_chemin][0]
+                    chemin = []
+                    while sommet != None:
+                        chemin.append(sommet)
+                        sommet = dict_chemins[sommet]
+            print(chemin)
             print(COLORS[(joueur+1)%2], plus_court_chemin)
+            
+            if joueur == 1:
+                self.pcc_rouge = chemin
+            else:
+                self.pcc_bleu = chemin
             
             if plus_court_chemin == 0:
                 print(f'joueur {COLORS[(joueur+1)%2]} gagne')
@@ -123,6 +139,7 @@ class Game(object):
             elif plus_court_chemin == np.inf:
                 print(f'joueur {COLORS[(joueur+1)%2]} perd')
         print()
+        print(self.pcc_bleu)
 
             
 
@@ -130,6 +147,7 @@ class Game(object):
 
     def dijkstra(self, x, y, player):
         poids = {(i%self.size, i//self.size) : np.inf for i in range(81)}
+        chemins = {(i%self.size, i//self.size) : None for i in range(81)}
         poids[(x,y)] = 0
         marqués = set([(x,y)])
         traités = set([])
@@ -145,8 +163,11 @@ class Game(object):
                     value = self.mat_poids[player%2][yp][xp]
                     if value != np.inf:
                         marqués.add((x2,y2))
-                        poids[(x2,y2)] = min(poids[(x2,y2)], value+poids[(x,y)])
-        return poids
+                        if (longueur := value+poids[(x,y)]) < poids[(x2,y2)]:
+                            poids[(x2,y2)] = longueur
+                            chemins[(x2,y2)] = (x,y)
+                        
+        return poids,chemins
                     
                     
 
@@ -186,6 +207,24 @@ class App(tk.Tk):
             self.game.update_mat(x,y, self.game.turn%2+1)
         else:
             return
+        n = self.game.size
+        spacing_x = (WIDTH-PAD*2)/(n+n/2)
+        rad = spacing_x/sqrt(3)
+        spacing_y = rad*sqrt(2)
+        pad_y = ((HEIGHT-PAD*2)-spacing_y*n)/2
+        print('a', self.game.pcc_bleu)
+        self.canvas.delete('chemin')
+        for o in range(2):
+            chemin = [self.game.pcc_rouge, self.game.pcc_bleu][o]
+            for i in range(len(chemin)):
+                x,y = chemin[i]
+                x1 = x*spacing_x+PAD+rad+y*spacing_x/2
+                y1 = pad_y + y*spacing_y+PAD+rad
+                chemin[i] = (x1,y1)
+            if chemin:
+                self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=7)
+                self.canvas.create_line(chemin, fill=COLORS[o], tag='chemin', width=3)
+
         if self.game.game_over:
             self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill='white')
             self.canvas.create_text(self.width/2+2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
@@ -223,7 +262,6 @@ class App(tk.Tk):
         rad = spacing_x/sqrt(3)
         spacing_y = rad*sqrt(2)
         pad_y = ((HEIGHT-PAD*2)-spacing_y*n)/2
-        corners = []
         for y in range(n):
             for x in range(n):
                 x1 = x*spacing_x+PAD+rad+y*spacing_x/2
