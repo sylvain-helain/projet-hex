@@ -222,8 +222,8 @@ class App(tk.Tk):
                 y1 = pad_y + y*spacing_y+PAD+rad
                 chemin[i] = (x1,y1)
             if chemin:
-                self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=7)
-                self.canvas.create_line(chemin, fill=COLORS[o], tag='chemin', width=3)
+                self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=8, smooth=True, capstyle='round')
+                self.canvas.create_line(chemin, fill=COLORS[o], tag='chemin', width=4, smooth=True, capstyle='round')
 
         if self.game.game_over:
             self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill='white')
