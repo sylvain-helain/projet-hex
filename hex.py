@@ -40,6 +40,12 @@ class Game(object):
         self.game_over = False
         self.winner = ''
 
+        self.borders = [
+            [(x,y) for y in [0,size-1] for x in range(size)],
+            [(x,y) for y in range(size) for x in [0,size-1]]
+
+        ]
+
         for y in range(size*size):
             for x in range(y,size*size):
                 x1, y1 = y%size, y//size
@@ -53,10 +59,18 @@ class Game(object):
                 elif (dx == -1 and dy == -1) or (dx == 1 and dy == 1):
                     continue
                 elif abs(dx) <= 1 and abs(dy) <= 1:
-                    self.mat_poids[0][y][x] = 1
-                    self.mat_poids[1][y][x] = 1
-                    self.mat_poids[0][x][y] = 1
-                    self.mat_poids[1][x][y] = 1
+                    if ((x1,y1) in self.borders[0]) ^ ((x2,y2) in self.borders[0]):
+                        coef0 = 1.5
+                    else:
+                        coef0 = 1
+                    if ((x1,y1) in self.borders[1]) ^ ((x2,y2) in self.borders[1]):
+                        coef1 = 1.5
+                    else:
+                        coef1 = 1
+                    self.mat_poids[0][y][x] = coef0
+                    self.mat_poids[1][y][x] = coef1
+                    self.mat_poids[0][x][y] = coef0
+                    self.mat_poids[1][x][y] = coef1
 
 
     def update_mat(self, x, y, player):
@@ -69,8 +83,12 @@ class Game(object):
                 yp, xp = y*self.size + x, y2*self.size + x2
                 value = self.mat[y2][x2]
                 if value == 0:
-                    self.mat_poids[player%2][yp][xp] = 0.5
-                    self.mat_poids[player%2][xp][yp] = 0.5
+                    if not ((x,y) in self.borders[player%2]) and ((x2,y2) in self.borders[player%2]):
+                        coef = 1
+                    else:
+                        coef = 0.5
+                    self.mat_poids[player%2][yp][xp] = coef
+                    self.mat_poids[player%2][xp][yp] = coef
                     self.mat_poids[(player+1)%2][yp][xp] = np.inf
                     self.mat_poids[(player+1)%2][xp][yp] = np.inf
                 elif value == player:
@@ -169,7 +187,8 @@ class App(tk.Tk):
         else:
             return
         if self.game.game_over:
-            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
+            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill='white')
+            self.canvas.create_text(self.width/2+2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
         self.canvas.delete('turn_count')
         self.canvas.delete('cursor')
         self.game.turn += 1
