@@ -1,10 +1,12 @@
 import tkinter as tk
 from math import cos,sin,pi,sqrt
 import numpy as np
+# import threading
+# import time
 
 letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-N = 9
+N = 11
 WIDTH = 900
 HEIGHT = 650
 PAD = 35
@@ -73,6 +75,41 @@ class Game(object):
                     self.mat_poids[1][y][x] = coef1
                     self.mat_poids[0][x][y] = coef0
                     self.mat_poids[1][x][y] = coef1
+        self.fonction_eval()
+
+    def fonction_eval(self):
+        for player in [1,2]:
+            if player == 1:
+                A = {(0,i) for i in range(self.size)}
+                B = {(self.size-1,i) for i in range(self.size)}
+            else:
+                A = {(i,0) for i in range(self.size)}
+                B = {(i,self.size-1) for i in range(self.size)}
+            
+            plus_court_chemin = np.inf
+            chemin = []
+            for x,y in A:
+                poids, dict_chemins = self.dijkstra(x,y,player)
+                res = {key : value for key, value in poids.items() if key in B}
+                if (mini := min(res.values())) < plus_court_chemin:
+                    plus_court_chemin = mini
+                    sommet = [key for key,val in res.items() if val == plus_court_chemin][0]
+                    chemin = []
+                    while sommet != None:
+                        chemin.append(sommet)
+                        sommet = dict_chemins[sommet]
+            
+            if player == 1:
+                self.pcc_rouge = chemin
+            else:
+                self.pcc_bleu = chemin
+            
+            if plus_court_chemin == 0:
+                print(f'joueur {COLORS[(player+1)%2]} gagne')
+                self.game_over = True
+                self.winner = COLORS[(player+1)%2]
+            elif plus_court_chemin == np.inf:
+                print(f'joueur {COLORS[(player+1)%2]} perd')
 
 
     def update_mat(self, x, y, player):
@@ -104,50 +141,15 @@ class Game(object):
                     self.mat_poids[(player+1)%2][yp][xp] = np.inf
                     self.mat_poids[(player+1)%2][xp][yp] = np.inf
 
-        for joueur in [1,2]:
-            if joueur == 1:
-                A = {(0,i) for i in range(self.size)}
-                B = {(self.size-1,i) for i in range(self.size)}
-            else:
-                A = {(i,0) for i in range(self.size)}
-                B = {(i,self.size-1) for i in range(self.size)}
-            
-            plus_court_chemin = np.inf
-            chemin = []
-            for x,y in A:
-                poids, dict_chemins = self.dijkstra(x,y,joueur)
-                res = {key : value for key, value in poids.items() if key in B}
-                if (mini := min(res.values())) < plus_court_chemin:
-                    plus_court_chemin = mini
-                    sommet = [key for key,val in res.items() if val == plus_court_chemin][0]
-                    chemin = []
-                    while sommet != None:
-                        chemin.append(sommet)
-                        sommet = dict_chemins[sommet]
-            print(chemin)
-            print(COLORS[(joueur+1)%2], plus_court_chemin)
-            
-            if joueur == 1:
-                self.pcc_rouge = chemin
-            else:
-                self.pcc_bleu = chemin
-            
-            if plus_court_chemin == 0:
-                print(f'joueur {COLORS[(joueur+1)%2]} gagne')
-                self.game_over = True
-                self.winner = COLORS[(joueur+1)%2]
-            elif plus_court_chemin == np.inf:
-                print(f'joueur {COLORS[(joueur+1)%2]} perd')
-        print()
-        print(self.pcc_bleu)
+        self.fonction_eval()
 
             
 
 
 
     def dijkstra(self, x, y, player):
-        poids = {(i%self.size, i//self.size) : np.inf for i in range(81)}
-        chemins = {(i%self.size, i//self.size) : None for i in range(81)}
+        poids = {(i%self.size, i//self.size) : np.inf for i in range(self.size**2)}
+        chemins = {(i%self.size, i//self.size) : None for i in range(self.size**2)}
         poids[(x,y)] = 0
         marqués = set([(x,y)])
         traités = set([])
@@ -178,6 +180,7 @@ class App(tk.Tk):
         self.game = game
         self.width = width
         self.height = height
+        self.resizable(False,False)
         
         self.canvas = tk.Canvas(self, width=width, height=height, bg='white')
         self.canvas.grid(row=0, column=0)
