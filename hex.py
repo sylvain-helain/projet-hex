@@ -43,6 +43,7 @@ class Game(object):
         self.winner = ''
         self.pcc_bleu = []
         self.pcc_rouge = []
+        self.mat_points = [np.full((size, size), fill_value=-1), np.full((size, size), fill_value=-1)]
 
         self.borders = [
             [(x,y) for y in [0,size-1] for x in range(size)],
@@ -78,6 +79,7 @@ class Game(object):
         self.fonction_eval()
 
     def fonction_eval(self):
+        self.mat_points = [np.full((self.size, self.size), fill_value=-1), np.full((self.size, self.size), fill_value=-1)]
         for player in [1,2]:
             if player == 1:
                 A = {(0,i) for i in range(self.size)}
@@ -87,22 +89,27 @@ class Game(object):
                 B = {(i,self.size-1) for i in range(self.size)}
             
             plus_court_chemin = np.inf
-            chemin = []
+            pcc = []
             for x,y in A:
+                chemin = []
                 poids, dict_chemins = self.dijkstra(x,y,player)
                 res = {key : value for key, value in poids.items() if key in B}
-                if (mini := min(res.values())) < plus_court_chemin:
-                    plus_court_chemin = mini
-                    sommet = [key for key,val in res.items() if val == plus_court_chemin][0]
-                    chemin = []
-                    while sommet != None:
-                        chemin.append(sommet)
-                        sommet = dict_chemins[sommet]
+
+                mini = min(res.values())
+                sommet = [key for key,val in res.items() if val == mini][0]
+                while sommet != None:
+                    chemin.append(sommet)
+                    x1,y1 = sommet
+                    if (a := self.mat_points[player%2][y1][x1]) == -1 or a > mini:
+                        self.mat_points[player%2][y1][x1] = mini
+                    sommet = dict_chemins[sommet]
+                if mini < plus_court_chemin:
+                    pcc = chemin.copy()
             
             if player == 1:
-                self.pcc_rouge = chemin
+                self.pcc_rouge = pcc
             else:
-                self.pcc_bleu = chemin
+                self.pcc_bleu = pcc
             
             if plus_court_chemin == 0:
                 print(f'joueur {COLORS[(player+1)%2]} gagne')
@@ -110,6 +117,13 @@ class Game(object):
                 self.winner = COLORS[(player+1)%2]
             elif plus_court_chemin == np.inf:
                 print(f'joueur {COLORS[(player+1)%2]} perd')
+        maxi = max(self.mat_points[0].max(), self.mat_points[1].max())
+        mask0 = self.mat_points[0] != -1
+        mask1 = self.mat_points[1] != -1
+        self.mat_points[0][mask0] = (maxi - self.mat_points[0][mask0])**2
+        self.mat_points[1][mask1] = (maxi - self.mat_points[1][mask1])**2
+        print(self.mat_points[0])
+        print(self.mat_points[1])
 
 
     def update_mat(self, x, y, player):
@@ -145,6 +159,8 @@ class Game(object):
 
             
 
+    def points(self):
+        pass
 
 
     def dijkstra(self, x, y, player):
@@ -229,13 +245,30 @@ class App(tk.Tk):
                 self.canvas.create_line(chemin, fill=COLORS[o], tag='chemin', width=4, smooth=True, capstyle='round')
 
         if self.game.game_over:
-            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill='white')
-            self.canvas.create_text(self.width/2+2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
+            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font="consolas 41 bold", fill='white')
+            self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
         self.canvas.delete('turn_count')
         self.canvas.delete('cursor')
         self.game.turn += 1
         self.canvas.create_text(self.width-PAD,PAD,text=COLORS[self.game.turn%2].upper(), font=('consolas',20), fill=COLORS[self.game.turn%2], tag='turn_count')
         self.canvas.create_oval(event.x-7,event.y-7,event.x+7,event.y+7,fill=COLORS[self.game.turn%2], width=0, tag='cursor')
+        self.update_points()
+    
+    def update_points(self):
+        self.canvas.delete('points')
+        n = self.game.size
+        spacing_x = (WIDTH-PAD*2)/(n+n/2)
+        rad = spacing_x/sqrt(3)
+        spacing_y = rad*sqrt(2)
+        pad_y = ((HEIGHT-PAD*2)-spacing_y*n)/2
+        for y in range(self.game.size):
+            for x in range(self.game.size):
+                colors = ('red','blue')
+                for i in range(2):
+                    if (a := self.game.mat_points[i][y][x]) > 0:
+                        x1 = x*spacing_x+PAD+rad+y*spacing_x/2
+                        y1 = pad_y + y*spacing_y+PAD+rad
+                        self.canvas.create_text(x1-rad/2 +rad*i,y1,text=str(a), font="consolas 20",tag='points', fill=colors[i])
 
     def move(self, event):
         x,y = event.x, event.y
