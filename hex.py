@@ -6,7 +6,7 @@ import numpy as np
 
 letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-N = 11
+N = 26
 WIDTH = 900
 HEIGHT = 650
 PAD = 35

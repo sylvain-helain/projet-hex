@@ -3,7 +3,7 @@ from math import cos, sin, pi, sqrt
 import numpy as np
 import random as rd
 from tkinter import ttk
-
+from PIL import Image, ImageTk
 
 
 
@@ -143,12 +143,21 @@ LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 class MainTitle(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.iconbitmap("./icone.ico")
         self.title('Hex - Menu')
         self.width = 250
-        self.height = 480
+        self.height = 600
         self.toggle = True
         self.protocol("WM_DELETE_WINDOW", self.stop_all)
         self.center_window()
+
+        image = Image.open("./hex.jpg")  # ex: "image.jpg"
+        image = image.resize((250, 120))  # redimensionner si nécessaire
+        self.photo = ImageTk.PhotoImage(image)
+
+        # Créer un label pour afficher l'image
+        label_image = tk.Label(self, image=self.photo)
+        label_image.pack()
 
         self.PvBot = tk.BooleanVar(value=False)
         self.Color = tk.IntVar(value=0)
@@ -242,7 +251,7 @@ class MainTitle(tk.Tk):
 
     def center_window(self):
         h = self.winfo_screenheight()
-        y = (h*5//16) - (self.height//2)
+        y = (h*3//8) - (self.height//2)
         self.geometry(f"{self.width}x{self.height}+{20}+{y}")
 
         
@@ -253,6 +262,7 @@ class App(tk.Tk):
     def __init__(self, size:int, isPvBot:bool=False, start_color:int|None=None, difficulty:int|None=None):
         super().__init__()
         App.running.append(self)
+        self.iconbitmap("./icone.ico")
         self.title('Hex - Game')
         self.game = Game(size, isPvBot, start_color, difficulty)
         self.window_width= 950
