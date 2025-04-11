@@ -151,7 +151,7 @@ class MainTitle(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.stop_all)
         self.center_window()
 
-        image = Image.open("./hex.jpg")  # ex: "image.jpg"
+        image = Image.open("./hex3.jpg")  # ex: "image.jpg"
         image = image.resize((250, 120))  # redimensionner si nécessaire
         self.photo = ImageTk.PhotoImage(image)
 
