@@ -104,6 +104,11 @@ class Game(object):
                 other_player.mat_adjacence[yp][xp] = np.inf
                 other_player.mat_adjacence[xp][yp] = np.inf
         self.turn += 1
+    
+    def switch(self):
+        self.player0.color, self.player1.color = self.player1.color, self.player0.color
+        self.player0, self.player1 = self.player1, self.player0
+        self.players = self.players[::-1]
 
 
     def dijkstra(self, x:int, y:int, player:Player|Bot):
@@ -223,18 +228,12 @@ class MainTitle(tk.Tk):
                 root = App(size = self.slider_taille.get())
             self.b_start.configure(bg='grey', state='disabled')
             self.b_stop.configure(bg='red', state='normal')
-            
-
-            eval = Evaluation()
-            eval.next()
-            eval.mainloop()
             root.mainloop()
             
     def stop(self):
         if len(App.running) != 0:
             self.b_start.configure(bg='green', state='normal')
             self.b_stop.configure(bg='grey', state='disabled')
-            Evaluation.running[0].terminate()
             App.running[0].terminate()
     
     def stop_all(self):
@@ -256,15 +255,23 @@ class App(tk.Tk):
         App.running.append(self)
         self.title('Hex - Game')
         self.game = Game(size, isPvBot, start_color, difficulty)
+        self.window_width= 950
         self.width = 900
         self.height = 700
         self.resizable(False,False)
         self.center_window()
         
         self.canvas = tk.Canvas(self, width=self.width, height=self.height, bg='white')
-        self.canvas.grid(row=0, column=0)
+        self.canvas.grid(row=0, column=0, rowspan=6)
 
-        self.canvas.create_text(self.width-PAD,PAD,text=COLORS[self.game.turn%2].upper(), font=('consolas',20), fill=COLORS[self.game.turn%2], tag='turn_count')
+        self.b_switch = tk.Button(self, text='Switch', command=self.switch, state='disabled', bg='grey')
+        self.b_switch.grid(row=0,column=1, sticky="nsew")
+
+        # self.canvas.create_text(self.width//7,PAD, text=f"Player 1: {self.game.player0.color}\nPlayer 2: {self.game.player1.color}", font='consolas 20', tag='player_info')
+        self.canvas.create_text(self.width//7,self.height-PAD, text=f"Player 1: {self.game.player0.color}", font="consolas 20", tag='player1_info', fill=self.game.player0.color)
+        self.canvas.create_text(self.width*6//7,self.height-PAD, text=f"Player 2: {self.game.player1.color}", font="consolas 20", tag='player2_info', fill=self.game.player1.color)
+
+        self.canvas.create_text(self.width-PAD*5,PAD,text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN", font=('consolas',20), fill=COLORS[self.game.turn%2], tag='turn_count')
 
         # self.canvas.bind('<Button-1>', self.click)
         self.canvas.bind('<Motion>', self.move)
@@ -278,9 +285,9 @@ class App(tk.Tk):
     def center_window(self):
         l = self.winfo_screenwidth()
         h = self.winfo_screenheight()
-        x = (l*3//5) - (self.width//2)
+        x = (l*3//5) - (self.window_width//2)
         y = (h*7//16) - (self.height//2)
-        self.geometry(f"{self.width}x{self.height}+{x}+{y}")
+        self.geometry(f"{self.window_width}x{self.height}+{x}+{y}")
 
     def terminate(self):
         App.running.remove(self)
@@ -354,46 +361,28 @@ class App(tk.Tk):
             return
         x, y = res
         self.process_tile_change(x, y)
+    
+    def switch(self):
+        self.b_switch.configure(state='disabled', bg='grey', fg='black')
+        self.game.switch()
+        self.canvas.itemconfig('turn_count', text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN")
+        self.canvas.itemconfig("player1_info", text=f"Player 1: {self.game.player1.color}", fill=self.game.player1.color)
+        self.canvas.itemconfig("player2_info", text=f"Player 2: {self.game.player0.color}", fill=self.game.player0.color)
+        
         
     def process_tile_change(self, x, y):
         self.change_tile_color(x, y, COLORS[self.game.turn%2])
         self.game.update_mat_plateau(x,y, self.game.turn%2)
+        if self.game.turn == 1:
+            self.b_switch.configure(state='normal', bg='blue', fg='white')
+        elif self.game.turn == 2:
+            self.b_switch.configure(state='disabled', bg='grey', fg='black')
         self.canvas.itemconfig('cursor', fill=COLORS[self.game.turn%2])
-        self.canvas.itemconfig('turn_count', fill=COLORS[self.game.turn%2], text=COLORS[self.game.turn%2].upper())
+        self.canvas.itemconfig('turn_count', fill=COLORS[self.game.turn%2], text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN")
 
         # if self.game.game_over:
         #     self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font="consolas 41 bold", fill='white')
         #     self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
-        
-class Evaluation(tk.Tk):
-    running = []
-    def __init__(self):
-        super().__init__()
-        Evaluation.running.append(self)
-        self.title('Hex - Evaluation')
-        self.height = 150
-        self.width = 350
-        self.protocol("WM_DELETE_WINDOW", lambda:print('Veuillez fermer la fenêtre depuis le menu principal.'))
-        self.counter = 1
-        self.compteur = tk.Label(self, text=str(self.counter))
-        self.compteur.pack()
-        self.fps = 8
-        self.center_window()
-    
-    def center_window(self):
-        h = self.winfo_screenheight()
-        y = (h*3//4) - (self.height//2)
-        self.geometry(f"{self.width}x{self.height}+{20}+{y}")
-    
-    def next(self):
-        self.counter += 1
-        self.compteur.configure(text=str(self.counter))
-        if len(Evaluation.running) != 0:
-            self.after(1000//self.fps, lambda:self.next())
-
-    def terminate(self):
-        Evaluation.running.remove(self)
-        self.destroy()
 
 
 
