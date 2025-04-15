@@ -11,15 +11,72 @@ class Player(object):
     def __init__(self, id, color, game_size):
         self.id = id
         self.color = color
-        self.pcc = []
+        self.pcc = [np.inf,[]]
+        self.max_pcc = 0
+        self.game_size = game_size
+        self.score = 0
 
         self.mat_adjacence = np.full((game_size**2, game_size**2), fill_value=np.inf)
-        self.mat_points = np.full((game_size, game_size), fill_value=-1)
+        self.mat_points = np.full((game_size, game_size), fill_value=np.inf)
 
-        if id == 0:
-            self.game_borders = [(x,y) for y in [0, game_size-1] for x in range(game_size)]
+        if id == 1:
+            self.game_borders = [(x,y) for x in [0, game_size-1] for y in range(game_size)]
         else:
-            self.game_borders = [(x,y) for y in range(game_size) for x in [0, game_size-1]]
+            self.game_borders = [(x,y) for y in [0, game_size-1] for x in range(game_size)]
+
+    def find_shortest_paths(self):
+        self.pcc = [np.inf, []]
+        self.max_pcc = 0
+        self.mat_points = np.full((self.game_size, self.game_size), fill_value=np.inf)
+        border1, border2 = self.game_borders[:self.game_size], self.game_borders[self.game_size:]
+        for x1, y1 in border1:
+            poids, chemins = self.dijkstra(x1,y1)
+            # print(poids,chemins)
+            for x2, y2 in border2:
+                p = poids[(x2, y2)]
+                if p < self.pcc[0]:
+                    self.pcc = [p, []]
+                    new_pcc = True
+                else:
+                    new_pcc = False
+                
+                if p > self.max_pcc:
+                    self.max_pcc = p
+
+                node = (x2, y2)
+                while node != None:
+                    x3, y3 = node
+                    if new_pcc:
+                        self.pcc[1].append((x3,y3))
+                    if p < self.mat_points[y3][x3]:
+                        self.mat_points[y3][x3] = p
+                    node = chemins[(x3, y3)]
+
+    def dijkstra(self, x:int, y:int):
+        poids = {(i%self.game_size, i//self.game_size) : np.inf for i in range(self.game_size**2)}
+        chemins = {(i%self.game_size, i//self.game_size) : None for i in range(self.game_size**2)}
+        poids[(x,y)] = 0
+        marqués = set([(x,y)])
+        traités = set([])
+        while len(marqués) != len(traités):
+            x,y = min(marqués-traités, key=lambda i: poids[i])
+            traités.add((x,y))
+            for x1 in range(-1,2):
+                for y1 in range(-1,2):
+                    y2, x2 = y+y1, x+x1
+                    if (y1 == x1) or (y2 >= self.game_size) or (y2 < 0) or (x2 >= self.game_size) or (x2 < 0):
+                        continue
+                    yp, xp = y*self.game_size + x, y2*self.game_size + x2
+                    value = self.mat_adjacence[yp][xp]
+                    if value != np.inf:
+                        marqués.add((x2,y2))
+                        if (longueur := value + poids[(x,y)]) < poids[(x2,y2)]:
+                            poids[(x2,y2)] = longueur
+                            chemins[(x2,y2)] = (x,y)
+
+        
+        return poids, chemins
+
 
 class Bot(Player):
     def __init__(self, id, color, game_size, difficulty):
@@ -49,6 +106,26 @@ class Game(object):
 
         self.turn = 0
         self.game_over = False
+
+    def update_evaluation(self):
+        min_pcc = min(self.player0.pcc[0], self.player0.pcc[0])
+        # max_pcc = max(self.player0.max_pcc, self.player1.max_pcc)
+        for player in self.players:
+            # print('###############""')
+            player.find_shortest_paths()
+            np.mask_indices
+            # print('1)', player.mat_points)
+            grid_eval = min_pcc + 5 - player.mat_points
+            # print('2)', grid_eval)
+            grid_eval[grid_eval < 0] = 0
+            # print(np.sum(grid_eval > 0))
+            # print('3)', grid_eval)
+            grid_eval = grid_eval**2
+            score = np.sum(grid_eval)
+            # print('score)', score)
+            player.mat_points = grid_eval
+            player.score = score
+
 
     def create_mat_adjacence(self):
         '''Fonction pour créer une matrice adjacence des joueurs
@@ -95,7 +172,7 @@ class Game(object):
                         poid = 1
                     else:
                         poid = 0.5
-                elif value == player.id:
+                elif value == player.id+1:
                     poid = 0
                 else:
                     poid = np.inf
@@ -104,6 +181,7 @@ class Game(object):
                 other_player.mat_adjacence[yp][xp] = np.inf
                 other_player.mat_adjacence[xp][yp] = np.inf
         self.turn += 1
+        self.update_evaluation()
     
     def switch(self):
         self.player0.color, self.player1.color = self.player1.color, self.player0.color
@@ -277,6 +355,9 @@ class App(tk.Tk):
         self.b_switch = tk.Button(self, text='Switch', command=self.switch, state='disabled', bg='grey')
         self.b_switch.grid(row=0,column=1, sticky="nsew")
 
+        self.b_toggle_eval = tk.Button(self, text='Toggle Eval', command=self.toggle_eval)
+        self.b_toggle_eval.grid(row=0, column=2, sticky="nsew")
+
         # self.canvas.create_text(self.width//7,PAD, text=f"Player 1: {self.game.player0.color}\nPlayer 2: {self.game.player1.color}", font='consolas 20', tag='player_info')
         self.canvas.create_text(self.width//7,self.height-PAD, text=f"Player 1: {self.game.player0.color}", font="consolas 20", tag='player1_info', fill=self.game.player0.color)
         self.canvas.create_text(self.width*6//7,self.height-PAD, text=f"Player 2: {self.game.player1.color}", font="consolas 20", tag='player2_info', fill=self.game.player1.color)
@@ -291,6 +372,9 @@ class App(tk.Tk):
 
         # empeche la fermeture avec la croix
         self.protocol("WM_DELETE_WINDOW", lambda:print('Veuillez fermer la fenêtre depuis le menu principal.'))
+    
+    def toggle_eval(self):
+        pass
 
     def center_window(self):
         l = self.winfo_screenwidth()
@@ -335,7 +419,16 @@ class App(tk.Tk):
             for x in range(n):
                 x1 = x*spacing_x+PAD+rad+y*spacing_x/2
                 y1 = pad_y + y*spacing_y+PAD+rad
+
+                
+
                 self.draw_hexagon(x1,y1,rad,tag=f"{x}:{y}")
+
+                # self.canvas.create_text(x1-rad/2-1,y1-1,text='0',fill='white', tag=f'text0_{x}:{y}', font='consolas 10')
+                # self.canvas.create_text(x1+rad/2-1,y1-1,text='0',fill='white', tag=f'text1_{x}:{y}', font='consolas 10')
+                # self.canvas.create_text(x1-rad/2,y1,text='0',fill='red', tag=f'text0_{x}:{y}', font='consolas 10')
+                # self.canvas.create_text(x1+rad/2,y1,text='0',fill='blue', tag=f'text1_{x}:{y}', font='consolas 10')
+
                 if x == 0:
                     self.canvas.create_text(x1-rad*1.75,y1,text=str(y+1),font=('consolas',20),tag='ignore')
                 if x == n-1:
@@ -370,7 +463,7 @@ class App(tk.Tk):
         if (res := self.get_tile(event.x, event.y)) == None or self.game.game_over:
             return
         x, y = res
-        self.process_tile_change(x, y)
+        self.handle_tile_change(x, y)
     
     def switch(self):
         self.b_switch.configure(state='disabled', bg='grey', fg='black')
@@ -378,11 +471,46 @@ class App(tk.Tk):
         self.canvas.itemconfig('turn_count', text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN")
         self.canvas.itemconfig("player1_info", text=f"Player 1: {self.game.player1.color}", fill=self.game.player1.color)
         self.canvas.itemconfig("player2_info", text=f"Player 2: {self.game.player0.color}", fill=self.game.player0.color)
+    
+    def display_pcc(self):
+        n = self.game.size
+        spacing_x = (self.width-PAD*2)/(n+n/2)
+        rad = spacing_x/sqrt(3)
+        spacing_y = rad*sqrt(2)
+        pad_y = ((self.height-PAD*2)-spacing_y*n)/2
+        self.canvas.delete('chemin')
+        for player in self.game.players:
+            chemin = player.pcc[1]
+            for i in range(len(chemin)):
+                x,y = chemin[i]
+                x1 = x*spacing_x+PAD+rad+y*spacing_x/2
+                y1 = pad_y + y*spacing_y+PAD+rad
+                chemin[i] = (x1,y1)
+            if chemin:
+                self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=8, smooth=True, capstyle='round')
+                self.canvas.create_line(chemin, fill=player.color, tag='chemin', width=4, smooth=True, capstyle='round')
         
-        
-    def process_tile_change(self, x, y):
+    def handle_tile_change(self, x, y):
         self.change_tile_color(x, y, COLORS[self.game.turn%2])
         self.game.update_mat_plateau(x,y, self.game.turn%2)
+        self.display_pcc()
+        # for player in self.game.players:
+        #     for ya in range(self.game.size):
+        #         for xa in range(self.game.size):
+        #             try:
+        #                 self.canvas.itemconfig(f'text{player.id}_{xa}:{ya}', text=str(int(player.mat_points[ya][xa])))
+        #             except:
+        #                 self.canvas.itemconfig(f'text{player.id}_{xa}:{ya}', text=str(-1))
+        player1_percentage = self.game.player0.score/(self.game.player0.score+self.game.player1.score)
+        print(f"player1\n{player1_percentage}\n{self.game.player0.color}\n")
+        print(f"player2\n{1-player1_percentage}\n{self.game.player1.color}\n")
+        xe, ye = self.width/2, self.height-50
+        size_e = 150
+        middle = size_e*player1_percentage
+        if player1_percentage <= 1:
+            self.canvas.delete('eval_bar')
+            self.canvas.create_rectangle(xe-size_e/2,ye-15/2,xe-size_e/2+middle,ye+15,fill=self.game.player0.color,tag='eval_bar')
+            self.canvas.create_rectangle(xe-size_e/2+middle,ye-15/2,xe+size_e/2,ye+15,fill=self.game.player1.color,tag='eval_bar')
         if self.game.turn == 1:
             self.b_switch.configure(state='normal', bg='blue', fg='white')
         elif self.game.turn == 2:
