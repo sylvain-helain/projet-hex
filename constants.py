@@ -1,3 +1,5 @@
+'''Fichier pour stocker toutes les constantes utilisées dans le programme'''
+
 # main title
 MT_WIDTH = 250
 MT_HEIGHT = 600
