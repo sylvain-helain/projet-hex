@@ -1,7 +1,7 @@
 # imports
-from game import Game
-from board import Board
-from player import Player, Bot
+# from game import Game
+from board import BoardApp
+# from player import Player, BotPlayer
 from constants import MT_WIDTH, MT_HEIGHT
 
 import tkinter as tk
@@ -111,13 +111,13 @@ class MainTitle(tk.Tk):
     def start(self):
         '''fonction attachée au bouton start, elle récupère toutes les variables utilisées par les différents boutons pour
         avoir tous les paramètres de jeu choisis et lance le jeu avec ainsi que la fenêtre d'affichage du plateau.'''
-        if len(Board.running) == 0: # on vérifie avant qu'il n'y a pas d'autres instances de jeu en cours
+        if len(BoardApp.running) == 0: # on vérifie avant qu'il n'y a pas d'autres instances de jeu en cours
             if self.PvBot.get(): # JcBot
-                root = Board(size = self.slider_taille.get(),
+                root = BoardApp(size = self.slider_taille.get(),
                         isPvBot= True,
                         start_color= self.Color.get())
             else: # JcJ
-                root = Board(size = self.slider_taille.get())
+                root = BoardApp(size = self.slider_taille.get())
 
             self.b_start.configure(bg='grey', state='disabled') # désactive le bouton start
             self.b_stop.configure(bg='red', state='normal') # active le boton stop
@@ -125,10 +125,10 @@ class MainTitle(tk.Tk):
             
     def stop(self):
         '''Fonction attachée au bouton stop, elle permet d'arrêter une partie en cours'''
-        if len(Board.running) != 0: # si il y a une instance de jeu en cours
+        if len(BoardApp.running) != 0: # si il y a une instance de jeu en cours
             self.b_start.configure(bg='green', state='normal') # active le bouton start
             self.b_stop.configure(bg='grey', state='disabled') # désactive le bouton stop
-            Board.running[0].terminate() # arrêter la partie
+            BoardApp.running[0].terminate() # arrêter la partie
     
     def stop_all(self):
         '''Fonction appellée lorsqu'on essaye de fermer la fenêtre avec la croix rouge de la fenêtre,

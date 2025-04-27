@@ -1,9 +1,14 @@
 import tkinter as tk
 from game import Game
+from player import Player, BotPlayer
+from ai import Ai
 from math import sin, cos, sqrt, pi
 from constants import B_WIDTH, B_HEIGHT, PAD, COLORS, LETTERS
 
-class Board(tk.Tk):
+
+import random as rd
+
+class BoardApp(tk.Tk):
     '''Classe pour l'affichage d'une fenêtre tkinter pour affichage du plateau de jeu hex.
     Prend plusieurs paramètres en entrée à l'initialisation comme:
     - la taille du plateau, 
@@ -18,15 +23,18 @@ class Board(tk.Tk):
         start_color : 0 -> Rouge ; 1 -> Bleu ; 2 -> Aléatoire ; None -> Si JcJ
         difficulty : [1:10] -> 1 étant la difficulté la plus faible et 10 la plus élevée'''
         super().__init__()
-        Board.running.append(self)
+        BoardApp.running.append(self)
         self.iconbitmap("./icone.ico")
         self.title('Hex - Game')
-        self.game = Game(size, isPvBot, start_color, difficulty)
         self.window_width= 950
         self.width = B_WIDTH
         self.height = B_HEIGHT
         self.resizable(False,False)
         self.center_window()
+
+        self.game = Game(size, isPvBot, start_color, difficulty) # comment
+        self.ai = Ai(self.game)
+
         # canvas
         self.canvas = tk.Canvas(self, width=self.width, height=self.height, bg='white')
         self.canvas.grid(row=0, column=0, rowspan=6)
@@ -37,10 +45,13 @@ class Board(tk.Tk):
         self.b_toggle_eval = tk.Button(self, text='Toggle Eval', command=self.toggle_eval)
         self.b_toggle_eval.grid(row=0, column=2, sticky="nsew")
         # affichage des couleurs pour chaque joueur
-        self.canvas.create_text(self.width//7,self.height-PAD, text=f"Player 1: {self.game.player0.color}", font="consolas 20", tag='player1_info', fill=self.game.player0.color)
-        self.canvas.create_text(self.width*6//7,self.height-PAD, text=f"Player 2: {self.game.player1.color}", font="consolas 20", tag='player2_info', fill=self.game.player1.color)
+        self.p1, self.p2 = sorted(self.game.players,key=lambda x: x.id) # le joueur dont l'id est 0 aura p1
+        self.canvas.create_text(self.width*2//10,self.height-PAD, text=f"Player {self.p1.id+1} ({'Bot' if type(self.p1) == BotPlayer else 'Human'}): {self.p1.color}", font="consolas 20", tag='player1_info', fill=self.p1.color)
+        self.canvas.create_text(self.width*8//10,self.height-PAD, text=f"Player {self.p2.id+1} ({'Bot' if type(self.p2) == BotPlayer else 'Human'}): {self.p2.color}", font="consolas 20", tag='player2_info', fill=self.p2.color)
         # affichage du tour
-        self.canvas.create_text(self.width-PAD*5,PAD,text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN", font=('consolas',20), fill=COLORS[self.game.turn%2], tag='turn_count')
+        couleur_tour = COLORS[self.game.turn%2]
+        joueur_tour = next(p for p in self.game.players if p.color == couleur_tour)
+        self.canvas.create_text(self.width-PAD*5,PAD,text=f"PLAYER{joueur_tour.id+1}'S TURN", font=('consolas',20), fill=couleur_tour, tag='turn_count')
 
         self.canvas.bind('<Motion>', self.move) # mouvement de souris
         self.canvas.bind('<Button-1>', self.click) # clic gauche souris
@@ -49,6 +60,13 @@ class Board(tk.Tk):
 
         # empeche la fermeture avec la croix
         self.protocol("WM_DELETE_WINDOW", lambda:print('Veuillez fermer la fenêtre depuis le menu principal.'))
+        if type(joueur_tour) == BotPlayer:
+            self.clickable = False
+            self.get_ai_input()
+        else:
+            self.clickable = True
+
+
     
     def toggle_eval(self):
         '''Fonction pour activer / désactiver l'affichage de l'évaluation sur le canvas du plateau'''
@@ -64,7 +82,7 @@ class Board(tk.Tk):
 
     def terminate(self):
         '''Fontion appelée pour supprimer l'instance de plateau crée dans la liste Board.running avant de fermer la fenêtre'''
-        Board.running.remove(self)
+        BoardApp.running.remove(self)
         self.destroy()
     
     def move(self, event):
@@ -159,21 +177,40 @@ class Board(tk.Tk):
         else:
             return None
 
+    def get_ai_input(self):
+        self.ai.get_next_turn()
+        if self.game.turn == 1 and rd.randint(0,1) == 1:
+            self.switch()
+            return
+
+        while True:
+            x,y = rd.randint(0,self.game.size-1), rd.randint(0,self.game.size-1)
+            if self.game.mat_plateau[y][x] == 0:
+                break
+        self.handle_tile_change(x, y)
+
     def click(self, event):
         '''Fonction bind au clic souris gauche, appelle la fonction get_tile pour savoir si on séléctionne une case valide,
         si oui elle appelle la fonction handle_tile_change pour modifier la configuration du plateau de jeu dans la classe Game.'''
-        if (res := self.get_tile(event.x, event.y)) == None or self.game.game_over: # si le clic n'est pas valide ou la partie est terminée
+        if (res := self.get_tile(event.x, event.y)) == None or self.game.game_over or self.clickable == False: # si le clic n'est pas valide ou la partie est terminée
             return
         x, y = res
         self.handle_tile_change(x, y)
     
     def switch(self):
         '''Fonction bind au bouton switch, appelle la fonction switch du jeu, change l'affichage pour intervertir les roles des joueurs'''
+        print('switch')
         self.b_switch.configure(state='disabled', bg='grey', fg='black') # désactive le bouton
         self.game.switch()
-        self.canvas.itemconfig('turn_count', text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN")
-        self.canvas.itemconfig("player1_info", text=f"Player 1: {self.game.player1.color}", fill=self.game.player1.color)
-        self.canvas.itemconfig("player2_info", text=f"Player 2: {self.game.player0.color}", fill=self.game.player0.color)
+        joueur_tour = next(p for p in self.game.players if p.color == COLORS[self.game.turn%2])
+        self.canvas.itemconfig('turn_count', text=f"PLAYER{joueur_tour.id+1}'S TURN")
+        self.canvas.itemconfig("player1_info", text=f"Player {self.p1.id+1} ({'Bot' if type(self.p1) == BotPlayer else 'Human'}): {self.p1.color}", font="consolas 20", fill=self.p1.color)
+        self.canvas.itemconfig("player2_info", text=f"Player {self.p2.id+1} ({'Bot' if type(self.p2) == BotPlayer else 'Human'}): {self.p2.color}", font="consolas 20", fill=self.p2.color)
+        if type(joueur_tour) == BotPlayer:
+            self.clickable = False
+            self.get_ai_input()
+        else:
+            self.clickable = True
     
     def display_pcc(self):
         '''Fonction pour afficher les plus courts chemins de chaque joueur'''
@@ -201,24 +238,25 @@ class Board(tk.Tk):
     
     def update_eval_bar(self):
         '''Fonction utilisée pour modifier la barre d'évaluation selon l'évaluation actuelle des joueurs'''
-        player1_percentage = self.game.player0.score/(self.game.player0.score+self.game.player1.score) # calcul du pourcentage du joueur0
-        print(f"player1\n{player1_percentage}\n{self.game.player0.color}\n")
-        print(f"player2\n{1-player1_percentage}\n{self.game.player1.color}\n") # 1-pourcentage
+        player1_percentage = self.p1.score/(self.p1.score+self.p2.score) # calcul du pourcentage du joueur1
+        print(f"player1\n{player1_percentage}\n{self.p1.color}\n")
+        print(f"player2\n{1-player1_percentage}\n{self.p2.color}\n") # 1-pourcentage
         # calcul coordonnées début, fin de la barre pour les deux joueurs
         xe, ye = self.width/2, self.height-50
         size_e = 150
         middle = size_e*player1_percentage
         if player1_percentage <= 1: # si les deux joueurs ont un score
             self.canvas.delete('eval_bar')
-            self.canvas.create_rectangle(xe-size_e/2,ye-15/2,xe-size_e/2+middle,ye+15,fill=self.game.player0.color,tag='eval_bar')
-            self.canvas.create_rectangle(xe-size_e/2+middle,ye-15/2,xe+size_e/2,ye+15,fill=self.game.player1.color,tag='eval_bar')
+            self.canvas.create_rectangle(xe-size_e/2,ye-15/2,xe-size_e/2+middle,ye+15,fill=self.p1.color,tag='eval_bar')
+            self.canvas.create_rectangle(xe-size_e/2+middle,ye-15/2,xe+size_e/2,ye+15,fill=self.p2.color,tag='eval_bar')
 
 
     def handle_tile_change(self, x, y):
         '''Fonction utilisée pour appeler toutes les fonctions utiles à changer la configuration du jeu et de l'interface
         lorsqu'un joueur à joué un coup à des coordonnées x,y en entrée.'''
         self.change_tile_color(x, y, COLORS[self.game.turn%2]) # change la couleur de la case
-        self.game.update_mat_plateau(x,y, self.game.turn%2) # permet a l'instance de la classe Game du jeu de s'actualiser
+        self.game.tile_change(x,y, self.game.turn%2) # permet a l'instance de la classe Game du jeu de s'actualiser
+        Ai.evaluate_position(self.p1, self.p2)
         self.display_pcc() # montre les plus courts chemins s'ils existent
         self.update_eval_bar() # affiche la barre d'évaluation si possible
 
@@ -230,7 +268,15 @@ class Board(tk.Tk):
         # update la couleur du curseur directement après le clic (car la fonction move le fera que si le curseur bouge à nouveau)
         self.canvas.itemconfig('cursor', fill=COLORS[self.game.turn%2]) 
         # update l'affichage du tour
-        self.canvas.itemconfig('turn_count', fill=COLORS[self.game.turn%2], text=f"PLAYER{self.game.players[self.game.turn%2].id+1}'S TURN")
+        couleur_tour = COLORS[self.game.turn%2]
+        joueur_tour = next(p for p in self.game.players if p.color == couleur_tour)
+        self.canvas.itemconfig('turn_count', fill=couleur_tour, text=f"PLAYER{joueur_tour.id+1}'S TURN")
+
+        if type(joueur_tour) == BotPlayer:
+            self.clickable = False
+            self.get_ai_input()
+        else:
+            self.clickable = True
 
         # if self.game.game_over:
         #     self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font="consolas 41 bold", fill='white')
