@@ -76,6 +76,8 @@ class Player(object):
         player1.color, player2.color = player2.color, player1.color
         player1.color_id, player2.color_id = player2.color_id, player1.color_id
         player1.game_borders, player2.game_borders = player2.game_borders, player1.game_borders
+        player1.mat_adjacence, player2.mat_adjacence = player2.mat_adjacence, player1.mat_adjacence
+        player1.mat_points, player2.mat_points = player2.mat_points, player1.mat_points
     
 
 class BotPlayer(Player):

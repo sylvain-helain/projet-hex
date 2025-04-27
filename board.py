@@ -255,7 +255,8 @@ class BoardApp(tk.Tk):
         '''Fonction utilisée pour appeler toutes les fonctions utiles à changer la configuration du jeu et de l'interface
         lorsqu'un joueur à joué un coup à des coordonnées x,y en entrée.'''
         self.change_tile_color(x, y, COLORS[self.game.turn%2]) # change la couleur de la case
-        self.game.tile_change(x,y, self.game.turn%2) # permet a l'instance de la classe Game du jeu de s'actualiser
+        player = next(p for p in self.game.players if p.color == COLORS[self.game.turn%2])
+        self.game.tile_change(x,y, player.id) # permet a l'instance de la classe Game du jeu de s'actualiser
         Ai.evaluate_position(self.p1, self.p2)
         self.display_pcc() # montre les plus courts chemins s'ils existent
         self.update_eval_bar() # affiche la barre d'évaluation si possible
