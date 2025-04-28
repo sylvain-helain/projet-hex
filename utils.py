@@ -2,6 +2,39 @@
 
 import numpy as np
 
+def are_sides_linked(board:np.ndarray, x:int, y:int, goal:tuple, size:int, color_id:int, marqués:list):
+    if (x,y) in goal:
+        return True
+    
+    marqués.append((x,y))
+
+    for y1 in range(-1,2):
+        for x1 in range(-1,2):
+            x2, y2 = x+x1, y+y1
+            if y1 == x1 or x2 >= size or x2 < 0 or y2 >= size or y2 < 0:
+                continue
+            if board[y2][x2] == color_id and (x2,y2) not in marqués:
+                if are_sides_linked(board, x2, y2, goal, size, color_id, marqués):
+                    return True
+    return False
+
+
+def is_board_terminal(board:np.ndarray):
+    size = board.shape[0]
+    goals = (
+        [(x,y) for y in (0,size-1) for x in range(0,size)],
+        [(x,y) for x in (0,size-1) for y in range(0,size)]
+    )
+    for i in range(2):
+        side1, side2 = goals[i][:size], goals[i][size:]
+        for x,y in side1:
+            if board[y][x] == i+1:
+                marqués = []
+                if are_sides_linked(board, x, y, side2, size, color_id=i+1, marqués=marqués):
+                    return True
+    return False
+
+
 def create_mat_adjacence(game_borders:list, game_size:int):
     '''Fonction pour créer une matrice adjacence des joueurs
     Une matrice d'adjacence pour un plateau de 11x11 est une matrice symétrique de taille 121x121

@@ -33,7 +33,7 @@ class BoardApp(tk.Tk):
         self.center_window()
 
         self.game = Game(size, isPvBot, start_color, difficulty) # comment
-        self.ai = Ai(self.game)
+        self.ai = Ai(self.game, difficulty=difficulty)
 
         # canvas
         self.canvas = tk.Canvas(self, width=self.width, height=self.height, bg='white')
@@ -178,15 +178,15 @@ class BoardApp(tk.Tk):
             return None
 
     def get_ai_input(self):
-        self.ai.get_next_turn()
-        if self.game.turn == 1 and rd.randint(0,1) == 1:
-            self.switch()
-            return
+        x,y = self.ai.get_best_move(self.ai.depth_max)
+        # if self.game.turn == 1 and rd.randint(0,1) == 1:
+        #     self.switch()
+        #     return
 
-        while True:
-            x,y = rd.randint(0,self.game.size-1), rd.randint(0,self.game.size-1)
-            if self.game.mat_plateau[y][x] == 0:
-                break
+        # while True:
+        #     x,y = rd.randint(0,self.game.size-1), rd.randint(0,self.game.size-1)
+        #     if self.game.mat_plateau[y][x] == 0:
+        #         break
         self.handle_tile_change(x, y)
 
     def click(self, event):
@@ -238,9 +238,9 @@ class BoardApp(tk.Tk):
     
     def update_eval_bar(self):
         '''Fonction utilisée pour modifier la barre d'évaluation selon l'évaluation actuelle des joueurs'''
-        player1_percentage = self.p1.score/(self.p1.score+self.p2.score) # calcul du pourcentage du joueur1
-        print(f"player1\n{player1_percentage}\n{self.p1.color}\n")
-        print(f"player2\n{1-player1_percentage}\n{self.p2.color}\n") # 1-pourcentage
+        player1_percentage = (self.p1.score+1)/2 # calcul du pourcentage du joueur1
+        # print(f"player1\n{player1_percentage}\n{self.p1.color}\n")
+        # print(f"player2\n{1-player1_percentage}\n{self.p2.color}\n") # 1-pourcentage
         # calcul coordonnées début, fin de la barre pour les deux joueurs
         xe, ye = self.width/2, self.height-50
         size_e = 150
@@ -257,7 +257,7 @@ class BoardApp(tk.Tk):
         self.change_tile_color(x, y, COLORS[self.game.turn%2]) # change la couleur de la case
         player = next(p for p in self.game.players if p.color == COLORS[self.game.turn%2])
         self.game.tile_change(x,y, player.id) # permet a l'instance de la classe Game du jeu de s'actualiser
-        Ai.evaluate_position(self.p1, self.p2)
+        self.ai.handle_board_tile_change(player.id, x, y)
         self.display_pcc() # montre les plus courts chemins s'ils existent
         self.update_eval_bar() # affiche la barre d'évaluation si possible
 

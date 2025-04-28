@@ -77,7 +77,7 @@ class MainTitle(tk.Tk):
 
         # Slider pour choix taille du plateau
         tk.Label(frame_param, text='Taille plateau').grid(row=0, column=0, padx=10, pady=10)
-        self.slider_taille = tk.Scale(frame_param, from_=6, to=16, orient='horizontal')
+        self.slider_taille = tk.Scale(frame_param, from_=3, to=16, orient='horizontal')
         self.slider_taille.set(11) # taille du plateau par défaut à 11
         self.slider_taille.grid(row=0,column=1, padx=10, pady=10)
 

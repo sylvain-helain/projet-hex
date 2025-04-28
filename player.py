@@ -19,7 +19,13 @@ class Player(object):
         self.mat_adjacence = create_mat_adjacence(self.game_borders, self.game_size)
         self.mat_points = np.full((game_size, game_size), fill_value=np.inf)
 
-    
+    def copy(self):
+        player_copy = Player(self.id, self.color, self.game_size)
+        player_copy.mat_adjacence = np.copy(self.mat_adjacence)
+        player_copy.score = self.score
+        return player_copy
+
+
     def update_mat_points_pcc(self):
         self.pcc = [np.inf, []]
         self.max_pcc = 0
@@ -47,7 +53,7 @@ class Player(object):
                     if p < self.mat_points[y3][x3]:
                         self.mat_points[y3][x3] = p
                     node = chemins[(x3, y3)]
-    
+
     @staticmethod
     def update_mat_adj(player, opponent, mat_plateau:np.ndarray, game_size:int, x:int, y:int):
         for y1 in range(-1,2):

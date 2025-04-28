@@ -25,14 +25,14 @@ class Game(object):
         self.turn = 0
         self.game_over = False
 
+   
+        
 
     
     def tile_change(self, x, y, player_id):
         '''Fonction qui gère l'ajout d'un pion sur le plateau'''
         player = next(p for p in self.players if p.id == player_id)
-        other_player = next(p for p in self.players if p.id == (player_id+1)%2)
         self.mat_plateau[y][x] = player.color_id
-        Player.update_mat_adj(player, other_player, self.mat_plateau, self.size, x, y)
         self.turn += 1
         
     
