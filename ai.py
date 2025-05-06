@@ -24,6 +24,13 @@ class Ai(object):
             self.depth_max = 5
         else:
             self.depth_max = difficulty
+
+
+
+
+
+
+            
         
     def minimax_alpha_beta(self, board:np.ndarray, player_cid:int, opp_cid:int, 
                            depth:int, alpha:float, beta:float, players_turn:bool, moves:list) -> float:
