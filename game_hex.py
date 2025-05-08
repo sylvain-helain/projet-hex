@@ -123,10 +123,14 @@ def potential_moves(mat:np.ndarray):
 def get_best_move(mat:np.ndarray, player:Player, depth=2):
     n = mat.shape[0]
     if np.all(mat <= 1): # si c'est le premier tour du bot
-        if n > 4:
-            return (rd.randint(2,n-3), rd.randint(2,n-3)) # retourne un coup au hasard dans le centre du plateau
-        else: # si la taille du plateau est <= 4
-            return (rd.randint(0,n-1), rd.randint(0,n-1))
+        while True:
+            if n > 3:
+                x,y = rd.randint(1,n-2), rd.randint(1,n-2) # retourne un coup au hasard dans le centre du plateau
+            else: # si la taille du plateau est <= 3
+                x,y = rd.randint(0,n-1), rd.randint(0,n-1)
+            
+            if mat[y][x] == 0:
+                return x,y
     max_id = player.id
     min_id = 1 if max_id == 2 else 2
     res = {}
@@ -320,11 +324,11 @@ def main():
         # t+= 1
         # print(f"Tour de", "Player1" if game.turn == game.p1 else "Player2")
         if game.turn == game.p1 and p1_bot:
-            x,y = get_best_move(game.mat, game.p1, 2)
+            x,y = get_best_move(game.mat, game.p1, 4)
         elif game.turn == game.p1 and not p1_bot:
             x,y = prompt(game.mat)
         elif game.turn == game.p2 and p2_bot:
-            x,y = get_best_move(game.mat, game.p2, 2)
+            x,y = get_best_move(game.mat, game.p2, 4)
         else:
             x,y = prompt(game.mat)
         game.mat[y][x] = game.turn.id
