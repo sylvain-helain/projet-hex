@@ -137,47 +137,54 @@ def get_best_move(mat:np.ndarray, player:Player, depth=2):
         print(f"\r{pourcentage*'#'+(100-pourcentage)*'-'} | {pourcentage}%", end='', flush=True)
         # print('hey')
         x,y = coo
-        new_mat = np.copy(mat)
-        new_mat[y][x] = max_id
+        mat[y][x] = max_id
         res[(x,y)] = minimax(
-            mat=new_mat, 
+            mat=mat, 
             max_id=max_id, 
             min_id=min_id, 
             depth=depth-1, 
             alpha=-np.inf, beta=np.inf, 
-            is_max_turn=True
+            is_max_turn=False
             )
+        mat[y][x] = 0
     print("\r" + " " * 150 + "\r", end='', flush=True)
     return max(res, key=res.get) # retourne le coup sous forme de coordonnées x,y
 
+
+def fonction_evaluation(mat:np.ndarray, max_id:int, depth):
+    n = mat.shape[0]
+    p1_pcc_len = find_shortest_path_length(create_dict_adj(mat, 1, p1_borders(n)), n, p1_border1(n), p1_border2(n))
+    p2_pcc_len = find_shortest_path_length(create_dict_adj(mat, 2, p2_borders(n)), n, p2_border1(n), p2_border2(n))
+    # print(mat)
+    # print(is_board_terminal(mat))
+    if p1_pcc_len == 0:
+        # print('win')
+        return 1000*(depth+1) if max_id == 1 else -1000*(depth+1)
+    elif p2_pcc_len == 0:
+        # print('lose')
+        return 1000*(depth+1) if max_id == 2 else -1000*(depth+1)
+    else:
+        # print(mat)
+        score_p1 = p2_pcc_len - p1_pcc_len
+        # print(score_p1)
+        # score_p1 = score_p1/(p2_pcc_len+p1_pcc_len)
+        # print(score_p1)
+        # print(mat, score_p1)
+        return score_p1 if max_id == 1 else -score_p1
 
 
 def minimax(mat:np.ndarray, max_id:int, min_id:int, 
                         depth:int, alpha:float, beta:float, is_max_turn:bool) -> float:
     # print(mat, is_board_terminal(mat))
     if is_board_terminal(mat) or depth <= 0: # si la position est terminale ou si on a atteint la profondeur de recherche maximale        
-        n = mat.shape[0]
-        p1_pcc_len = find_shortest_path_length(create_dict_adj(mat, 1, p1_borders(n)), n, p1_border1(n), p1_border2(n))
-        p2_pcc_len = find_shortest_path_length(create_dict_adj(mat, 2, p2_borders(n)), n, p2_border1(n), p2_border2(n))
-        # print(mat)
-        # print(is_board_terminal(mat))
-        if p1_pcc_len == 0:
-            # print('win')
-            return 1000*(depth+1) if max_id == 1 else -1000*(depth+1)
-        elif p2_pcc_len == 0:
-            # print('lose')
-            return 1000*(depth+1) if max_id == 2 else -1000*(depth+1)
-        else:
-            score_p1 = p2_pcc_len - p1_pcc_len
-            # print(mat, score_p1)
-            return score_p1 if max_id == 1 else -score_p1
+        return fonction_evaluation(mat, max_id, depth)
     
     if is_max_turn: #max
         max_eval = -np.inf
         for x,y in potential_moves(mat):
-            new_mat = np.copy(mat)
-            new_mat[y][x] = max_id
-            eval = minimax(new_mat, max_id, min_id, depth-1, alpha, beta, False)
+            mat[y][x] = max_id
+            eval = minimax(mat, max_id, min_id, depth-1, alpha, beta, False)
+            mat[y][x] = 0
             max_eval = max(max_eval, eval)
 
             alpha = max(alpha, eval)
@@ -187,9 +194,9 @@ def minimax(mat:np.ndarray, max_id:int, min_id:int,
     else: #min
         min_eval = np.inf
         for x,y in potential_moves(mat):
-            new_mat = np.copy(mat)
-            new_mat[y][x] = min_id
-            eval = minimax(new_mat, max_id, min_id, depth-1, alpha, beta, True)
+            mat[y][x] = min_id
+            eval = minimax(mat, max_id, min_id, depth-1, alpha, beta, True)
+            mat[y][x] = 0
             min_eval = min(min_eval, eval)
 
             beta = min(beta, eval)
@@ -251,10 +258,10 @@ def prompt(mat:np.ndarray):
 
 def affiche_jeu(mat:np.ndarray):
     n = mat.shape[0]
-    print('', ' '.join([i for i in ALPHABET[:n]]))
+    print('', red(' '.join([i for i in ALPHABET[:n]])))
     pad = 2
     for y in range(n):
-        print(f"{y+1} ".rjust(pad, " "), end='')
+        print(blue(f"{y+1} ".rjust(pad, " ")), end='')
         pad += 1
         for x in range(n):
             value = mat[y][x]
@@ -266,8 +273,8 @@ def affiche_jeu(mat:np.ndarray):
                 print(blue("⬢"), end=" ")
             else:
                 raise Exception("erreur couleur plateau")
-        print(' '+str(y+1))
-    print(' '*pad + ' '.join([i for i in ALPHABET[:n]]))
+        print(blue(' '+str(y+1)))
+    print(red(' '*pad + ' '.join([i for i in ALPHABET[:n]])))
 
 def is_board_terminal(board:np.ndarray):
     size = board.shape[0]
