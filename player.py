@@ -1,92 +1,77 @@
+from utils import get_cases_adj
 import numpy as np
-from utils import create_mat_adjacence, dijkstra
+
 
 class Player(object):
-    def __init__(self, id, color, game_size):
+    def __init__(self, id, n, mat):
         self.id = id
-        self.color_id = 1 if color == 'red' else 2 # id de couleur utilisé dans la matrice mat_plateau de Game
-        self.color = color
-        self.pcc = [np.inf,[]]
-        self.max_pcc = 0
-        self.game_size = game_size
-        self.score = 0
-
-        if self.color == 'blue':
-            self.game_borders = [(x,y) for x in [0, game_size-1] for y in range(game_size)]
+        self.n = n
+        self.mat = mat
+        if id==1:
+            self.border1 = [(x,0) for x in range(n)]
+            self.border2 = [(x,n-1) for x in range(n)]
+        elif id==2:
+            self.border1 = [(0,y) for y in range(n)]
+            self.border2 = [(n-1,y) for y in range(n)]
         else:
-            self.game_borders = [(x,y) for y in [0, game_size-1] for x in range(game_size)]
+            raise Exception('id incorrect: veuillez entrer 1 ou 2')
+        self.borders = self.border1 + self.border2
+        self.adjacences = self.create_dict_adj(self.id, self.borders)
 
-        self.mat_adjacence = create_mat_adjacence(self.game_borders, self.game_size)
-        self.mat_points = np.full((game_size, game_size), fill_value=np.inf)
-
-    def copy(self):
-        player_copy = Player(self.id, self.color, self.game_size)
-        player_copy.mat_adjacence = np.copy(self.mat_adjacence)
-        player_copy.score = self.score
-        return player_copy
-
-
-    def update_mat_points_pcc(self):
-        self.pcc = [np.inf, []]
-        self.max_pcc = 0
-        self.mat_points = np.full((self.game_size, self.game_size), fill_value=np.inf)
-        border1, border2 = self.game_borders[:self.game_size], self.game_borders[self.game_size:]
-        for x1, y1 in border1:
-            poids, chemins = dijkstra(self.mat_adjacence, self.game_size, x1,y1)
-            # print(poids,chemins)
-            for x2, y2 in border2:
-                p = poids[(x2, y2)]
-                if p < self.pcc[0]:
-                    self.pcc = [p, []]
-                    new_pcc = True
-                else:
-                    new_pcc = False
-                
-                if p > self.max_pcc:
-                    self.max_pcc = p
-
-                node = (x2, y2)
-                while node != None:
-                    x3, y3 = node
-                    if new_pcc:
-                        self.pcc[1].append((x3,y3))
-                    if p < self.mat_points[y3][x3]:
-                        self.mat_points[y3][x3] = p
-                    node = chemins[(x3, y3)]
-
-    @staticmethod
-    def update_mat_adj(player, opponent, mat_plateau:np.ndarray, game_size:int, x:int, y:int):
-        for y1 in range(-1,2):
-            for x1 in range(-1,2):
-                y2, x2 = y+y1, x+x1
-                if (y1 == x1) or (y2 >= game_size) or (y2 < 0) or (x2 >= game_size) or (x2 < 0):
-                    # on skip les cases inatteignables ou inexistantes
-                    continue
-                yp, xp = y*game_size + x, y2*game_size + x2 #calcul des coordonnées pour la matrice de poids
-                value = mat_plateau[y2][x2]
-                if value == 0: # si la case adjacente est libre
-                    # si seulement une des deux case est dans le but et pas l'autre, le lien entre celles-ci sera doublé
-                    if ((x,y) in player.game_borders) ^ ((x2,y2) in player.game_borders): # ^ -> XOR (ou exclusif)
-                        poid = 1
+    def find_shortest_path_length(self, dict_adj:dict, game_size:int, border1:list, border2:list):
+        min_value = np.inf
+        for x, y in border1:
+            poids = self.dijkstra(dict_adj, game_size, x, y)
+            min_value = min(min_value, min([poids[coo] for coo in border2]))
+        return min_value
+    
+    def dijkstra(self, dict_adj:dict, game_size:int, x:int, y:int):
+        poids = {(x, y) : np.inf for x in range(game_size) for y in range(game_size)}
+        poids[(x,y)] = 0
+        marqués = set([(x,y)])
+        traités = set()
+        while len(marqués) != len(traités):
+            x,y = min(marqués-traités, key=lambda i: poids[i])
+            traités.add((x,y))
+            for value, x1, y1 in dict_adj[(x,y)]:
+                marqués.add((x1,y1))
+                if (longueur := value + poids[(x,y)]) < poids[(x1,y1)]:
+                    poids[(x1,y1)] = longueur
+        return poids
+    
+    def create_dict_adj(self, id:int, borders:list):
+        id_opp = 1 if id==2 else 2
+        res = {(x,y):list() for x in range(self.n) for y in range(self.n)}
+        for y1 in range(self.n):
+            for x1 in range(self.n):
+                for x2, y2 in get_cases_adj(x1,y1,self.n):
+                    case1, case2 = self.mat[y1][x1], self.mat[y2][x2]
+                    if case1 == id_opp or case2 == id_opp:
+                        continue
+                    is_c1_border, is_c2_border = (x1,y1) in borders, (x2,y2) in borders
+                    if case1 == id and case2 == id:
+                        value = 0.0
+                    elif is_c1_border and is_c2_border:
+                        value = 1.5
+                    elif is_c1_border:
+                        if case1 == id and case2 == 0:
+                            value = 0.5
+                        elif case1 == 0 and case2 == id:
+                            value = 1.0
+                        else:
+                            value = 1.5
+                    elif is_c2_border:
+                        if case2 == id and case1 == 0:
+                            value = 0.5
+                        elif case2 == 0 and case1 == id:
+                            value = 1.0
+                        else:
+                            value = 1.5
+                    elif case1==id or case2==id:
+                        value = 0.5
                     else:
-                        poid = 0.5
-                elif value == player.color_id: # si la case est la notre
-                    poid = 0
-                else: # si la case est occupée par le joueur adverse
-                    poid = np.inf
-                player.mat_adjacence[yp][xp], player.mat_adjacence[xp][yp] = poid, poid
-                opponent.mat_adjacence[yp][xp], opponent.mat_adjacence[xp][yp] = np.inf, np.inf
-    
-    @staticmethod
-    def switch(player1, player2):
-        player1.color, player2.color = player2.color, player1.color
-        player1.color_id, player2.color_id = player2.color_id, player1.color_id
-        player1.game_borders, player2.game_borders = player2.game_borders, player1.game_borders
-        player1.mat_adjacence, player2.mat_adjacence = player2.mat_adjacence, player1.mat_adjacence
-        player1.mat_points, player2.mat_points = player2.mat_points, player1.mat_points
-    
+                        value = 1.0
+                    
+                    res[(x1,y1)].append([value,x2,y2])
 
-class BotPlayer(Player):
-    def __init__(self, id, color, game_size, difficulty):
-        super().__init__(id, color, game_size)
-        self.difficulty = difficulty
+        return res
