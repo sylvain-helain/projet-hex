@@ -2,7 +2,7 @@
 
 # main title
 MT_WIDTH = 250
-MT_HEIGHT = 600
+MT_HEIGHT = 675
 
 # board
 B_WIDTH = 900

@@ -2,10 +2,10 @@ import numpy as np
 import random as rd
 import time
 from player import Player
-from utils import p1_border1, p1_border2, p2_border1, p2_border2, p1_borders, p2_borders, get_cases_adj_minimax
+from utils import get_cases_adj_minimax
 
 
-class GameHex(object):
+class Game(object):
     def __init__(self, n:int):
         self.mat = np.zeros((n,n), dtype=int)
         self.n = n
@@ -14,24 +14,26 @@ class GameHex(object):
         self.turn = self.p1
         self.game_over = False
 
+    def switch(self):
+        if np.sum(self.mat != 0) == 1:
+            y,x = np.argwhere(self.mat)[0]
+            value = 1 if self.mat[y][x] == 2 else 2
+            self.mat[y][x], self.mat[x][y] = 0, value
+            self.next_turn()
     
     def next_turn(self):
         if self.turn == self.p1:
             self.turn = self.p2
         else:
             self.turn = self.p1
+        
     
     def is_board_terminal(self):
-        goals = (
-            [(x,y) for y in (0,self.n-1) for x in range(0,self.n)],
-            [(x,y) for x in (0,self.n-1) for y in range(0,self.n)]
-        )
-        for i in range(2):
-            side1, side2 = goals[i][:self.n], goals[i][self.n:]
-            for x,y in side1:
-                if self.mat[y][x] == i+1:
+        for player in (self.p1, self.p2):
+            for x,y in player.border1:
+                if self.mat[y][x] == player.id:
                     marqués = []
-                    if self.parcours_prodondeur(x, y, side2, self.n, color_id=i+1, marqués=marqués):
+                    if self.parcours_prodondeur(x, y, player.border2, self.n, color_id=player.id, marqués=marqués):
                         return True
         return False
     
@@ -82,25 +84,15 @@ class GameHex(object):
                     break
             return min_eval
     
-    def fonction_evaluation(self, max_id:int, depth):
-        n = self.mat.shape[0]
-        p1_pcc_len = self.p1.find_shortest_path_length(self.p1.create_dict_adj(1, p1_borders(n)), n, p1_border1(n), p1_border2(n))
-        p2_pcc_len = self.p2.find_shortest_path_length(self.p2.create_dict_adj(2, p2_borders(n)), n, p2_border1(n), p2_border2(n))
-        # print(mat)
-        # print(is_board_terminal(mat))
+    def fonction_evaluation(self, max_id:int, depth=0):
+        p1_pcc_len = self.p1.find_shortest_path_length()
+        p2_pcc_len = self.p2.find_shortest_path_length()
         if p1_pcc_len == 0:
-            # print('win')
             return 1000*(depth+1) if max_id == 1 else -1000*(depth+1)
         elif p2_pcc_len == 0:
-            # print('lose')
             return 1000*(depth+1) if max_id == 2 else -1000*(depth+1)
         else:
-            # print(mat)
             score_p1 = p2_pcc_len - p1_pcc_len
-            # print(score_p1)
-            # score_p1 = score_p1/(p2_pcc_len+p1_pcc_len)
-            # print(score_p1)
-            # print(mat, score_p1)
             return score_p1 if max_id == 1 else -score_p1
     
     def get_best_move(self, player:Player, depth=2):
@@ -114,8 +106,6 @@ class GameHex(object):
                 
                 if self.mat[y][x] == 0:
                     return x,y
-        max_id = player.id
-        min_id = 1 if max_id == 2 else 2
         res = {}
         moves = self.potential_moves()
         # print(len(moves))
@@ -124,10 +114,10 @@ class GameHex(object):
             print(f"\r{pourcentage*'#'+(100-pourcentage)*'-'} | {pourcentage}%", end='', flush=True)
             # print('hey')
             x,y = coo
-            self.mat[y][x] = max_id
+            self.mat[y][x] = player.id
             res[(x,y)] = self.minimax(
-                max_id=max_id, 
-                min_id=min_id, 
+                max_id=player.id, 
+                min_id=player.opp_id, 
                 depth=depth-1, 
                 alpha=-np.inf, beta=np.inf, 
                 is_max_turn=False
@@ -145,7 +135,7 @@ class GameHex(object):
 
 
 
-def affichage_terminal():
+def jeu_affichage_terminal():
     ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     def blue(char:str):
         return f"\033[34m{char}\033[0m"
@@ -191,11 +181,27 @@ def affichage_terminal():
     p2_bot = True if input("Player2 Joueur ou Bot ? [J/B] : ").lower() == "b" else False
     if p2_bot:
         p2_difficulty = int(input("Difficulté ? recommandé 1-5 : "))
-    game = GameHex(game_size)
+    game = Game(game_size)
     dessine_plateau(game.mat)
     # t = 0
     # start = time.time()
+    count = 0
     while not game.game_over:
+        count += 1
+        if count == 2:
+            if p2_bot:
+                if rd.randint(0,1) == 1:
+                    game.switch()
+                    dessine_plateau(game.mat)
+                    print(blue("switch"))
+                    
+            else:
+                value = True if str(input("switch ? [y/n] : ")).lower() == 'y' else False
+                if value:
+                    game.switch()
+                    dessine_plateau(game.mat)
+                    print(blue("switch"))
+
         # t+= 1 
         # print(f"Tour de", "Player1" if game.turn == game.p1 else "Player2")
         if game.turn == game.p1 and p1_bot:
@@ -220,7 +226,7 @@ def affichage_terminal():
 
 
 if __name__ == '__main__':
-    affichage_terminal()
+    jeu_affichage_terminal()
 
         
     
