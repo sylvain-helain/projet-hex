@@ -79,16 +79,16 @@ class MainTitle(tk.Tk):
         # Slider pour choix difficulté
         self.diff_p1_label = tk.Label(self.frame_p1, text='Difficulté')
         self.slider_diff_p1 = tk.Scale(self.frame_p1, from_=1, to=5, orient='horizontal')
-        self.slider_diff_p1.set(2) # difficulté par défaut à 5
+        self.slider_diff_p1.set(2) # difficulté par défaut à 2
 
         self.diff_p2_label = tk.Label(self.frame_p2, text='Difficulté')
         self.slider_diff_p2 = tk.Scale(self.frame_p2, from_=1, to=5, orient='horizontal')
-        self.slider_diff_p2.set(2) # difficulté par défaut à 5
+        self.slider_diff_p2.set(2) # difficulté par défaut à 2
 
 
         # Slider pour choix taille du plateau
         tk.Label(frame_param, text='Taille plateau').grid(row=0, column=0, padx=10, pady=10)
-        self.slider_taille = tk.Scale(frame_param, from_=5, to=16, orient='horizontal')
+        self.slider_taille = tk.Scale(frame_param, from_=5, to=13, orient='horizontal')
         self.slider_taille.set(11) # taille du plateau par défaut à 11
         self.slider_taille.grid(row=0,column=1, padx=10, pady=10)
 
