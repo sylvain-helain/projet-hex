@@ -19,7 +19,10 @@ class MainTitle(tk.Tk):
     Cette fenêtre permet aussi de lancer le jeu et de l'arrêter, qu'une instance de jeu ne peut être lancée à la fois.'''
     def __init__(self):
         super().__init__()
-        self.iconbitmap("./icone.ico")
+        try:
+            self.iconbitmap("./icone.ico")
+        except: # bug parfois sur un environnement linux
+            pass
         self.title('Hex - Menu')
         self.width = MT_WIDTH
         self.height = MT_HEIGHT
@@ -71,11 +74,6 @@ class MainTitle(tk.Tk):
 
         ttk.Radiobutton(self.frame_p2, variable=self.p2_bot, value=False, command=self.show_p2_bot_diff).grid(row=0,column=0,sticky=tk.W)
         ttk.Radiobutton(self.frame_p2, variable=self.p2_bot, value=True, command=self.show_p2_bot_diff).grid(row=1,column=0,sticky=tk.W)
-        # ttk.Radiobutton(self.frame_pvbot, variable=self.Color, value=2).grid(row=5,column=0,sticky=tk.W)
-        # tk.Label(self.frame_pvbot, text='Rouge').grid(row=3,column=1,sticky=tk.W)
-        # tk.Label(self.frame_pvbot, text='Bleu').grid(row=4,column=1,sticky=tk.W)
-        # tk.Label(self.frame_pvbot, text='Aléatoire').grid(row=5,column=1,sticky=tk.W)
-        
     
         
         # Slider pour choix difficulté
@@ -87,7 +85,6 @@ class MainTitle(tk.Tk):
         self.slider_diff_p2 = tk.Scale(self.frame_p2, from_=1, to=5, orient='horizontal')
         self.slider_diff_p2.set(2) # difficulté par défaut à 5
 
-        # self.slider_diff_p1.grid(row=1,column=0,columnspan=2)
 
         # Slider pour choix taille du plateau
         tk.Label(frame_param, text='Taille plateau').grid(row=0, column=0, padx=10, pady=10)
@@ -101,39 +98,8 @@ class MainTitle(tk.Tk):
         self.b_stop = tk.Button(frame_launch,text='STOP',command=lambda:self.stop(), bg='grey', state='disabled')
         self.b_stop.grid(row=0,column=1, padx=10, pady=10, sticky=tk.E+tk.W)
 
-        # self.toggle_widgets_mode(True) 
         self.resizable(False,False)
 
-    # def toggle_widgets_mode(self,var):
-    #     '''Cette fonction sert de switch pour faire en sorte que le contenu de la frame non sélectionnée soient grisés,
-    #     La frame sélectionnée sera non grisée'''
-    #     if var: # var = True : pour le mode JcJ
-    #         a,b = 'normal','disabled'
-    #     else: # var = False : pour le mode JcBot
-    #         a,b = 'disabled','normal'
-    #     for widget in self.frame_pvbot.winfo_children(): #JcBot
-    #         try: # on met un try car certains éléments ne peuvent pas être disabled dans les frame et génèrent une erreur
-    #             widget.configure(state=b)
-    #         except:
-    #             continue
-    #     for widget in self.frame_pvp.winfo_children(): #JcJ
-    #         try:
-    #             widget.configure(state=a)
-    #         except:
-    #             continue
-
-    # def limit_diff(self, var):
-    #     var = int(var)
-    #     if var <= 5:
-    #         limit = 4
-    #     elif var <= 7:
-    #         limit = 3
-    #     elif var <= 9:
-    #         limit = 2
-    #     else:
-    #         limit = 1
-    #     self.slider_diff_p1.config(to=limit)
-    #     self.slider_diff_p2.config(to=limit)
 
     def show_p1_bot_diff(self):
         if self.p1_bot.get():

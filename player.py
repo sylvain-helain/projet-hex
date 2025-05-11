@@ -19,6 +19,43 @@ class Player(object):
             raise Exception('id incorrect: veuillez entrer 1 ou 2')
         self.borders = self.border1 + self.border2
 
+    def get_shortest_path(self):
+        dict_adj = self.create_dict_adj()
+        min_value = np.inf
+        path = []
+        for x, y in self.border1:
+            poids, chemins = self.dijkstra_path(dict_adj, x, y)
+            val = min([poids[coo] for coo in self.border2])
+            if val < min_value:
+                min_value = val
+                x1,y1 = [key for key,value in poids.items() if value == min_value and key in self.border2][0]
+                path = [(x1,y1)]
+                while (to_add := chemins[path[-1]]) != None:
+                    path.append(to_add)
+        if min_value == 0:
+            win = True
+        else:
+            win = False
+        return path, win
+    
+    def dijkstra_path(self, dict_adj:dict, x:int, y:int):
+        chemins = {(x1, y1) : None for x1 in range(self.n) for y1 in range(self.n)}
+        poids = {(x1, y1) : np.inf for x1 in range(self.n) for y1 in range(self.n)}
+        poids[(x,y)] = 0
+        marqués = set([(x,y)])
+        traités = set([])
+        while len(marqués) != len(traités):
+            x,y = min(marqués-traités, key=lambda i: poids[i])
+            traités.add((x,y))
+            
+            for value, x1, y1 in dict_adj[(x,y)]:
+                marqués.add((x1,y1))
+                if (longueur := value + poids[(x,y)]) < poids[(x1,y1)]:
+                    poids[(x1,y1)] = longueur
+                    chemins[(x1,y1)] = (x,y)
+        return poids, chemins
+
+
     def find_shortest_path_length(self):
         dict_adj = self.create_dict_adj()
         min_value = np.inf
@@ -41,31 +78,6 @@ class Player(object):
                     poids[(x1,y1)] = longueur
         return poids
     
-    # def update_mat_adj(self, x, y):
-    #     index1 = y*self.n + x
-    #     id1 = self.mat[y][x]
-    #     for x2, y2 in get_cases_adj(x,y,self.n):
-    #         id2 = self.mat[y2][x2]
-    #         if id1 == self.opp_id or id2 == self.opp_id:
-    #             value = np.inf
-
-
-
-    # def create_mat_adj(self) -> np.ndarray:
-    #     mat_adj = np.full((self.n**2, self.n**2), np.inf)
-    #     for y1 in range(self.n):
-    #         for x1 in range(self.n):
-    #             i1 = y1*self.n + x1
-    #             for x2,y2 in get_cases_adj(x1,y1,self.n):
-    #                 i2 = y2*self.n + x2
-    #                 if ((x1,y1) in self.borders) ^ ((x2,y2) in self.borders):
-    #                     value = 1.5
-    #                 else:
-    #                     value = 1.0
-    #                 mat_adj[i1][i2] = value
-    #                 mat_adj[i2][i1] = value
-    #     return mat_adj
-
     def create_dict_adj(self) -> dict:
         res = {(x,y):list() for x in range(self.n) for y in range(self.n)}
         for y1 in range(self.n):

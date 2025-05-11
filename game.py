@@ -2,7 +2,8 @@ import numpy as np
 import random as rd
 import time
 from player import Player
-from utils import get_cases_adj_minimax
+from utils import get_cases_adj_minimax, blue, red, dessine_plateau
+from constants import LETTERS
 
 
 class Game(object):
@@ -20,6 +21,7 @@ class Game(object):
             value = 1 if self.mat[y][x] == 2 else 2
             self.mat[y][x], self.mat[x][y] = 0, value
             self.next_turn()
+        return x,y,value
     
     def next_turn(self):
         if self.turn == self.p1:
@@ -54,35 +56,52 @@ class Game(object):
         return False
 
     def minimax(self, max_id:int, min_id:int, 
-                            depth:int, alpha:float, beta:float, is_max_turn:bool) -> float:
-        # print(mat, is_board_terminal(mat))
+                            depth:int, alpha:float, beta:float, is_max_turn:bool, root=False) -> tuple:
         if self.is_board_terminal() or depth <= 0: # si la position est terminale ou si on a atteint la profondeur de recherche maximale        
-            return self.fonction_evaluation(max_id, depth)
+            return self.fonction_evaluation(max_id, depth), None
         
+        best_move = None
+
         if is_max_turn: #max
             max_eval = -np.inf
-            for x,y in self.potential_moves():
+            moves = self.potential_moves()
+            for i,coords in enumerate(moves):
+                if root:
+                    pourcentage = (i+1)*100//len(moves) 
+                    if max_id == 1:
+                        print(red(f"\r{pourcentage*'#'+(100-pourcentage)*'-'} | {pourcentage}%"), end='', flush=True)
+                    else:
+                        print(blue(f"\r{pourcentage*'#'+(100-pourcentage)*'-'} | {pourcentage}%"), end='', flush=True)
+
+                x,y = coords
                 self.mat[y][x] = max_id
-                eval = self.minimax(max_id, min_id, depth-1, alpha, beta, False)
+                eval, _ = self.minimax(max_id, min_id, depth-1, alpha, beta, False)
                 self.mat[y][x] = 0
-                max_eval = max(max_eval, eval)
+
+                if eval > max_eval:
+                    max_eval = eval
+                    best_move = (x,y)
 
                 alpha = max(alpha, eval)
                 if beta <= alpha:
                     break
-            return max_eval
+            if root : print("\r" + " " * 150 + "\r", end='', flush=True)
+            return max_eval, best_move
         else: #min
             min_eval = np.inf
             for x,y in self.potential_moves():
                 self.mat[y][x] = min_id
-                eval = self.minimax(max_id, min_id, depth-1, alpha, beta, True)
+                eval, _ = self.minimax(max_id, min_id, depth-1, alpha, beta, True)
                 self.mat[y][x] = 0
-                min_eval = min(min_eval, eval)
+                
+                if eval < min_eval:
+                    min_eval = eval
+                    best_move = (x,y)
 
                 beta = min(beta, eval)
                 if beta <= alpha:
                     break
-            return min_eval
+            return min_eval, best_move
     
     def fonction_evaluation(self, max_id:int, depth=0):
         p1_pcc_len = self.p1.find_shortest_path_length()
@@ -106,25 +125,16 @@ class Game(object):
                 
                 if self.mat[y][x] == 0:
                     return x,y
-        res = {}
-        moves = self.potential_moves()
-        # print(len(moves))
-        for index, coo in enumerate(moves):
-            pourcentage = (index+1)*100//len(moves) 
-            print(f"\r{pourcentage*'#'+(100-pourcentage)*'-'} | {pourcentage}%", end='', flush=True)
-            # print('hey')
-            x,y = coo
-            self.mat[y][x] = player.id
-            res[(x,y)] = self.minimax(
-                max_id=player.id, 
-                min_id=player.opp_id, 
-                depth=depth-1, 
-                alpha=-np.inf, beta=np.inf, 
-                is_max_turn=False
-                )
-            self.mat[y][x] = 0
-        print("\r" + " " * 150 + "\r", end='', flush=True)
-        return max(res, key=res.get) # retourne le coup sous forme de coordonnées x,y
+        
+        _,move = self.minimax(
+            max_id=player.id, 
+            min_id=player.opp_id, 
+            depth=depth-1, 
+            alpha=-np.inf, beta=np.inf, 
+            is_max_turn=True,
+            root=True
+            )
+        return move # retourne le coup sous forme de coordonnées x,y
     
     def potential_moves(self):
         return {(x2,y2) for y1,x1 in np.argwhere(self.mat!=0) 
@@ -136,42 +146,16 @@ class Game(object):
 
 
 def jeu_affichage_terminal():
-    ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    def blue(char:str):
-        return f"\033[34m{char}\033[0m"
-
-    def red(char:str):
-        return f"\033[31m{char}\033[0m"
 
     def prompt(mat:np.ndarray):
         while True:
             try:
                 move = input("Case? : ").strip()
-                x,y = ALPHABET.index(move[0].upper()), int(move[1:])-1
+                x,y = LETTERS.index(move[0].upper()), int(move[1:])-1
                 if mat[y][x] == 0:
                     return x,y
             except (ValueError, IndexError):
                 continue
-        
-    def dessine_plateau(mat:np.ndarray):
-        n = mat.shape[0]
-        print('', red(' '.join([i for i in ALPHABET[:n]])))
-        pad = 2
-        for y in range(n):
-            print(blue(f"{y+1} ".rjust(pad, " ")), end='')
-            pad += 1
-            for x in range(n):
-                value = mat[y][x]
-                if value == 0:
-                    print("⬡", end=" ")
-                elif value == 1:
-                    print(red("⬢"), end=" ")
-                elif value == 2:
-                    print(blue("⬢"), end=" ")
-                else:
-                    raise Exception("erreur couleur plateau")
-            print(blue(' '+str(y+1)))
-        print(red(' '*pad + ' '.join([i for i in ALPHABET[:n]])))
 
 
     game_size = int(input("Taille du plateau de jeu ? : "))
@@ -215,9 +199,9 @@ def jeu_affichage_terminal():
         game.mat[y][x] = game.turn.id
         dessine_plateau(game.mat)
         if game.turn == game.p1:
-            print(red(f"{ALPHABET[x]}{y+1}"))
+            print(red(f"{LETTERS[x]}{y+1}"))
         else:
-            print(blue(f"{ALPHABET[x]}{y+1}"))
+            print(blue(f"{LETTERS[x]}{y+1}"))
         # game.evaluate()
         game.next_turn()
         if game.is_board_terminal():

@@ -1,8 +1,8 @@
 import tkinter as tk
 from game import Game
-from player import Player
 from math import sin, cos, sqrt, pi
-from constants import B_WIDTH, B_HEIGHT, PAD, COLORS, LETTERS
+from constants import B_WIDTH, B_HEIGHT, PAD, LETTERS
+from utils import red, blue, dessine_plateau
 
 
 import random as rd
@@ -23,13 +23,17 @@ class BoardApp(tk.Tk):
         difficulty : [1:10] -> 1 étant la difficulté la plus faible et 10 la plus élevée'''
         super().__init__()
         BoardApp.running.append(self)
-        self.iconbitmap("./icone.ico")
+        try:
+            self.iconbitmap("./icone.ico")
+        except: # bug parfois sur un environnement linux
+            pass
         self.title('Hex - Game')
-        self.window_width= 950
+        self.window_width= 975
         self.width = B_WIDTH
         self.height = B_HEIGHT
         self.resizable(False,False)
         self.center_window()
+        self.show_pcc = False
 
         self.game = Game(size)
         self.p1_bot = p1_bot
@@ -40,15 +44,13 @@ class BoardApp(tk.Tk):
 
         # canvas
         self.canvas = tk.Canvas(self, width=self.width, height=self.height, bg='white')
-        self.canvas.grid(row=0, column=0, rowspan=6)
+        self.canvas.grid(row=0, column=0, rowspan=2)
         # bouton switch
         self.b_switch = tk.Button(self, text='Switch', command=self.switch, state='disabled', bg='grey')
         self.b_switch.grid(row=0,column=1, sticky="nsew")
-        # bouton afficher / masquer évaluation
-        # self.b_toggle_eval = tk.Button(self, text='Toggle Eval', command=self.toggle_eval)
-        # self.b_toggle_eval.grid(row=0, column=2, sticky="nsew")
-        # affichage des couleurs pour chaque joueur
-        # self.p1, self.p2 = sorted(self.game.players,key=lambda x: x.id) # le joueur dont l'id est 0 aura p1
+        self.b_show_pcc = tk.Button(self, text='PCC', command=self.toggle_pcc, bg='white')
+        self.b_show_pcc.grid(row=1, column=1, sticky='nsew')
+
         self.canvas.create_text(self.width*2//10,self.height-PAD, text=f"Player 1 ({'Bot' if p1_bot else 'Human'}): Red", font="consolas 20", fill="red")
         self.canvas.create_text(self.width*8//10,self.height-PAD, text=f"Player 2 ({'Bot' if p2_bot else 'Human'}): Blue", font="consolas 20", fill="blue")
         # affichage du tour
@@ -63,15 +65,23 @@ class BoardApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", lambda:print('Veuillez fermer la fenêtre depuis le menu principal.'))
         if (self.game.turn == self.game.p1 and p1_bot) or (self.game.turn == self.game.p2 and p2_bot):
             self.clickable = False
-            self.get_ai_input()
+            self.canvas.delete('cursor')
+            self.after(100, self.get_ai_input)
         else:
             self.clickable = True
 
 
 
-    def toggle_eval(self):
+    def toggle_pcc(self):
         '''Fonction pour activer / désactiver l'affichage de l'évaluation sur le canvas du plateau'''
-        pass
+        if self.show_pcc:
+            self.b_show_pcc.config(bg='white')
+            self.show_pcc = False
+            self.canvas.delete('chemin')
+        else:
+            self.b_show_pcc.config(bg='green')
+            self.show_pcc = True
+            self.display_pcc()
 
     def center_window(self):
         '''Fonction pour ajuster l'emplacement de la fenêtre en fonction de la résolution de l'écran'''
@@ -91,7 +101,7 @@ class BoardApp(tk.Tk):
         sous le pointeur de la souris indiquant quel Joueur doit colorer une case'''
         x,y = event.x, event.y
         self.canvas.delete('cursor')
-        if x > self.width or x < 0 or y > self.height or y < 0: # si le curseur est en dehors des limites du canvas
+        if x > self.width or x < 0 or y > self.height or y < 0 or not self.clickable: # si le curseur est en dehors des limites du canvas
             return
         self.canvas.create_oval(x-7,y-7,x+7,y+7,fill=self.game.turn.color, width=0, tag='cursor')
 
@@ -179,23 +189,18 @@ class BoardApp(tk.Tk):
             return None
 
     def get_ai_input(self):
+        if self.turn == 1 and rd.randint(0,1) == 1:
+            self.switch()
+            return
         diff = self.p1_diff if self.game.turn.id == 1 else self.p2_diff
         x,y = self.game.get_best_move(self.game.turn, diff)
         self.game.mat[y][x] = self.game.turn.id
-        # if self.game.turn == 1 and rd.randint(0,1) == 1:
-        #     self.switch()
-        #     return
-
-        # while True:
-        #     x,y = rd.randint(0,self.game.size-1), rd.randint(0,self.game.size-1)
-        #     if self.game.mat_plateau[y][x] == 0:
-        #         break
         self.handle_tile_change(x, y)
 
     def click(self, event):
         '''Fonction bind au clic souris gauche, appelle la fonction get_tile pour savoir si on séléctionne une case valide,
         si oui elle appelle la fonction handle_tile_change pour modifier la configuration du plateau de jeu dans la classe Game.'''
-        if (res := self.get_tile(event.x, event.y)) == None or self.game.game_over or self.clickable == False: # si le clic n'est pas valide ou la partie est terminée
+        if not self.clickable or self.game.game_over or (res := self.get_tile(event.x, event.y)) == None: # si le clic n'est pas valide ou la partie est terminée
             return
         x, y = res
         self.game.mat[y][x] = self.game.turn.id
@@ -203,85 +208,88 @@ class BoardApp(tk.Tk):
     
     def switch(self):
         '''Fonction bind au bouton switch, appelle la fonction switch du jeu, change l'affichage pour intervertir les roles des joueurs'''
-        print('switch')
         self.turn += 1
         self.b_switch.configure(state='disabled', bg='grey', fg='black') # désactive le bouton
-        self.game.switch()
+        x,y,value = self.game.switch()
+        dessine_plateau(self.game.mat)
+        if self.game.turn.id == 2:
+            print(red('switch'))
+        else:
+            print(blue('switch'))
+        self.change_tile_color(x, y, 'light grey')
+        self.change_tile_color(y, x, 'red' if value==1 else 'blue')
         # joueur_tour = next(p for p in self.game.players if p.color == COLORS[self.game.turn%2])
         self.canvas.itemconfig('turn_count', text=f"PLAYER{self.game.turn.id}'S TURN")
         if (self.p1_bot and self.game.turn.id == 1) or (self.p2_bot and self.game.turn.id == 2):
             self.clickable = False
-            self.get_ai_input()
+            self.canvas.delete('cursor')
+            self.after(100,self.get_ai_input)
         else:
             self.clickable = True
     
-    # def display_pcc(self):
-    #     '''Fonction pour afficher les plus courts chemins de chaque joueur'''
-    #     self.canvas.delete('chemin')
-    #     # définition des variables à utiliser pour calculer les x et y relatifs au canvas de chaque noeuds pour les chemins
-    #     n = self.game.size
-    #     spacing_x = (self.width-PAD*2)/(n+n/2)
-    #     rad = spacing_x/sqrt(3)
-    #     spacing_y = rad*sqrt(2)
-    #     pad_y = ((self.height-PAD*2)-spacing_y*n)/2
+    def display_pcc(self):
+        '''Fonction pour afficher les plus courts chemins de chaque joueur'''
+        self.canvas.delete('chemin')
+        # définition des variables à utiliser pour calculer les x et y relatifs au canvas de chaque noeuds pour les chemins
+        n = self.game.n
+        spacing_x = (self.width-PAD*2)/(n+n/2)
+        rad = spacing_x/sqrt(3)
+        spacing_y = rad*sqrt(2)
+        pad_y = ((self.height-PAD*2)-spacing_y*n)/2
 
-    #     for player in self.game.players: # pour les 2 joueurs
-    #         chemin = player.pcc[1] # retourne le chemin sous forme de liste de coordonnées
-    #         # boucle principale
-    #         for i in range(len(chemin)): # on parcours chaque noeud du chemin
-    #             x,y = chemin[i]
-    #             # calcul des coordonnées x et y relatives au canvas
-    #             x1 = x*spacing_x+PAD+rad+y*spacing_x/2
-    #             y1 = pad_y + y*spacing_y+PAD+rad
-    #             chemin[i] = (x1,y1) # on écrase les anciennes coordonnées avec les nouvelles
-    #         if chemin: # ce if est utile dans le cas où un joueur n'a pas de pcc (si il a perdu)
-    #             # dessine le chemin
-    #             self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=8, smooth=True, capstyle='round')
-    #             self.canvas.create_line(chemin, fill=player.color, tag='chemin', width=4, smooth=True, capstyle='round')
+        for player in (self.game.p1, self.game.p2): # pour les 2 joueurs
+            chemin, win = player.get_shortest_path() # retourne le chemin sous forme de liste de coordonnées
+            # boucle principale
+            for i in range(len(chemin)): # on parcours chaque noeud du chemin
+                x,y = chemin[i]
+                # calcul des coordonnées x et y relatives au canvas
+                x1 = x*spacing_x+PAD+rad+y*spacing_x/2
+                y1 = pad_y + y*spacing_y+PAD+rad
+                chemin[i] = (x1,y1) # on écrase les anciennes coordonnées avec les nouvelles
+            if chemin: # ce if est utile dans le cas où un joueur n'a pas de pcc (si il a perdu)
+                # dessine le chemin
+                self.canvas.create_line(chemin, fill='light grey', tag='chemin', width=8, smooth=True, capstyle='round')
+                self.canvas.create_line(chemin, fill=player.color, tag='chemin', width=4, smooth=True, capstyle='round')
+                if win:
+                    texte = f"PLAYER {player.id} WINS!"
+                    self.canvas.create_text(self.canvas.winfo_width()/2+2, self.canvas.winfo_height()/2+2, text=texte, font='consolas 60', fill='white')
+                    self.canvas.create_text(self.canvas.winfo_width()/2-2, self.canvas.winfo_height()/2-2, text=texte, font='consolas 60', fill='white')
+                    self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, text=texte, font='consolas 60', fill=player.color)
     
-    # def update_eval_bar(self):
-    #     '''Fonction utilisée pour modifier la barre d'évaluation selon l'évaluation actuelle des joueurs'''
-    #     player1_percentage = (self.p1.score+1)/2 # calcul du pourcentage du joueur1
-    #     # print(f"player1\n{player1_percentage}\n{self.p1.color}\n")
-    #     # print(f"player2\n{1-player1_percentage}\n{self.p2.color}\n") # 1-pourcentage
-    #     # calcul coordonnées début, fin de la barre pour les deux joueurs
-    #     xe, ye = self.width/2, self.height-50
-    #     size_e = 150
-    #     middle = size_e*player1_percentage
-    #     if player1_percentage <= 1: # si les deux joueurs ont un score
-    #         self.canvas.delete('eval_bar')
-    #         self.canvas.create_rectangle(xe-size_e/2,ye-15/2,xe-size_e/2+middle,ye+15,fill=self.p1.color,tag='eval_bar')
-    #         self.canvas.create_rectangle(xe-size_e/2+middle,ye-15/2,xe+size_e/2,ye+15,fill=self.p2.color,tag='eval_bar')
-
 
     def handle_tile_change(self, x, y):
         '''Fonction utilisée pour appeler toutes les fonctions utiles à changer la configuration du jeu et de l'interface
         lorsqu'un joueur à joué un coup à des coordonnées x,y en entrée.'''
+        dessine_plateau(self.game.mat)
+        if self.game.turn.id == 1:
+            print(red(f"{LETTERS[x]}{y+1}"))
+        else:
+            print(blue(f"{LETTERS[x]}{y+1}"))
         self.turn += 1
         self.change_tile_color(x, y, self.game.turn.color) # change la couleur de la case
-        # self.display_pcc() # montre les plus courts chemins s'ils existent
-        # self.update_eval_bar() # affiche la barre d'évaluation si possible
-
-        if self.turn == 2: # si c'est le 2ème tour, le joueur bleu peut choisir de switch
+    
+        if self.turn == 1: # si c'est le 2ème tour, le joueur bleu peut choisir de switch
             self.b_switch.configure(state='normal', bg='blue', fg='white')
-        elif self.turn == 3: # 3ème tour, ce n'est plus possible, le bouton est désactivé
+        elif self.turn == 2: # 3ème tour, ce n'est plus possible, le bouton est désactivé
             self.b_switch.configure(state='disabled', bg='grey', fg='black')
         self.game.next_turn()
         # update la couleur du curseur directement après le clic (car la fonction move le fera que si le curseur bouge à nouveau)
         self.canvas.itemconfig('cursor', fill=self.game.turn.color) 
         # update l'affichage du tour
         self.canvas.itemconfig('turn_count', fill=self.game.turn.color, text=f"PLAYER{self.game.turn.id}'S TURN")
+        if self.show_pcc:
+            self.display_pcc()
+
+        if self.game.is_board_terminal():
+            self.game.game_over = True
+            self.b_show_pcc.config(state='disabled')
+            self.clickable = False
+            self.display_pcc()
+            return
 
         if(self.p1_bot and self.game.turn.id == 1) or (self.p2_bot and self.game.turn.id == 2):
             self.clickable = False
-            self.get_ai_input()
+            self.canvas.delete('cursor')
+            self.after(100,self.get_ai_input)
         else:
             self.clickable = True
-
-        # if self.game.game_over:
-        #     self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font="consolas 41 bold", fill='white')
-        #     self.canvas.create_text(self.width/2,self.height/2, text=f'PLAYER {self.game.winner.upper()} WINS!', font=('consolas',40), fill=self.game.winner)
-
-
-# if __name__ == '__main__':
-#     board = BoardApp(7, )
