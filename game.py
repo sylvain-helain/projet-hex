@@ -159,7 +159,7 @@ class Game(object):
                 
                 if self.mat[y][x] == 0:
                     return x,y
-        
+        # start = time.time()
         _,move = self.minimax(
             max_id=player.id, 
             min_id=player.opp_id, 
@@ -168,6 +168,8 @@ class Game(object):
             is_max_turn=True,
             root=True
             )
+        # end = time.time()
+        # print(f"{end-start:.4f}s")
         return move # retourne le coup sous forme de coordonnées x,y
     
     def potential_moves(self):

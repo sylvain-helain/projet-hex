@@ -38,6 +38,7 @@ class BoardApp(tk.Tk):
         self.game = Game(size)
         self.p1_bot = p1_bot
         self.p2_bot = p2_bot
+        # difficulté
         self.p1_diff = p1_diff
         self.p2_diff = p2_diff
         self.turn = 0
@@ -189,10 +190,11 @@ class BoardApp(tk.Tk):
             return None
 
     def get_ai_input(self):
-        if self.turn == 1 and rd.randint(0,1) == 1:
+        '''S'occupe de faire les appels nécessaires pour faire jouer un coup à notre IA.'''
+        if self.turn == 1 and rd.randint(0,1) == 1: # si l'IA peut switch, il le fera avec une chance de 1/2
             self.switch()
             return
-        diff = self.p1_diff if self.game.turn.id == 1 else self.p2_diff
+        diff = self.p1_diff if self.game.turn.id == 1 else self.p2_diff # difficulté / depth max de minimax
         x,y = self.game.get_best_move(self.game.turn, diff)
         self.game.mat[y][x] = self.game.turn.id
         self.handle_tile_change(x, y)
@@ -280,15 +282,15 @@ class BoardApp(tk.Tk):
         if self.show_pcc:
             self.display_pcc()
 
-        if self.game.is_board_terminal():
+        if self.game.is_board_terminal(): # game over
             self.game.game_over = True
             self.b_show_pcc.config(state='disabled')
             self.clickable = False
-            self.display_pcc()
+            self.display_pcc() # affichage du pcc et écran de gagne
             return
 
-        if(self.p1_bot and self.game.turn.id == 1) or (self.p2_bot and self.game.turn.id == 2):
-            self.clickable = False
+        if(self.p1_bot and self.game.turn.id == 1) or (self.p2_bot and self.game.turn.id == 2): # si le prochain tour est celui d'un bot
+            self.clickable = False # retire les permissions de clic au joueur
             self.canvas.delete('cursor')
             self.after(100,self.get_ai_input)
         else:

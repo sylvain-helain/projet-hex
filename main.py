@@ -62,13 +62,12 @@ class MainTitle(tk.Tk):
         tk.Label(self.frame_p1, text='Bot').grid(row=1, column=1, columnspan=1, sticky=tk.W)
         self.frame_p2 = ttk.LabelFrame(frame_mode, text='Joueur 2 (bleu)')
         self.frame_p2.grid(row=1, column=0, padx=10, pady=10)
-        # tk.Label(self.frame_p2, text='Couleur').grid(row=2,column=0,columnspan=2,sticky=tk.W)
 
         tk.Label(self.frame_p2, text='Humain').grid(row=0, column=1, columnspan=1, sticky=tk.W)
         tk.Label(self.frame_p2, text='Bot').grid(row=1, column=1, columnspan=1, sticky=tk.W)
 
 
-        # Radiobuttons pour le choix de la couleur du joueur humain (0:Rouge, 1:Bleu, 2:Aléatoire)
+        # Radiobuttons pour le choix du type de joueur (humain ou bot)
         ttk.Radiobutton(self.frame_p1, variable=self.p1_bot, value=False, command=self.show_p1_bot_diff).grid(row=0,column=0,sticky=tk.W)
         ttk.Radiobutton(self.frame_p1, variable=self.p1_bot, value=True, command=self.show_p1_bot_diff).grid(row=1,column=0,sticky=tk.W)
 
@@ -102,6 +101,7 @@ class MainTitle(tk.Tk):
 
 
     def show_p1_bot_diff(self):
+        '''Fonction pour afficher / masquer le slider de difficulté pour le joueur 1 (si on séléctionne l'option Bot)'''
         if self.p1_bot.get():
             self.diff_p1_label.grid(row=2, column=0, columnspan=2)
             self.slider_diff_p1.grid(row=3, column=0, columnspan=2)
@@ -110,6 +110,7 @@ class MainTitle(tk.Tk):
             self.slider_diff_p1.grid_forget()
 
     def show_p2_bot_diff(self):
+        '''Fonction pour afficher / masquer le slider de difficulté pour le joueur 2 (si on séléctionne l'option Bot)'''
         if self.p2_bot.get():
             self.diff_p2_label.grid(row=2, column=0, columnspan=2)
             self.slider_diff_p2.grid(row=3, column=0, columnspan=2)
